@@ -11,6 +11,7 @@ from tqdm import trange
 
 import time
 
+np.set_printoptions(threshold=np.nan)
 try:
     from mpi4py import MPI
 except ImportError:
@@ -270,6 +271,8 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos):
         # The final halo terminates with -1.
         forest_halos["NextHaloInFOFgroup"][halos_in_fof_global_inds[-1]] = -1
 
+        print("FoF group {0}\tNextHaloInFOFgroup {1}".format(fof, forest_halos["NextHaloInFOFgroup"][halos_in_fof_global_inds]))
+
     return forest_halos
 
 
@@ -325,6 +328,9 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
     The default parameters are chosen to match the ASTRO3D Genesis trees as
     produced by VELOCIraptor + Treefrog.
     """
+
+    if debug:
+        np.set_printoptions(threshold=np.nan)
 
     if rank == 0:
         print("")
@@ -382,7 +388,6 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         global_halos_per_forest = []
 
         forests_to_process = [forests_to_process[659]] 
-
         for forestID in forests_to_process:
             # NHalos_forest is a nested dictionary accessed by each forestID.
             halos_per_forest = sum(NHalos_forest[forestID].values())
@@ -429,6 +434,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
             # Now if there were any flybys, we need to update the
             # `NextHaloInFOFgroup` chain to account for them.
+            tmp = 0
             if true_fof_idx:
                 # We do this by starting at the main FoF group and moving until we reach
                 # the end (`NextHaloInFOFgroup = -1`).  Then we attach the first flyby halo
@@ -442,11 +448,19 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                         curr_halo = next_in_chain
                         next_in_chain = forest_halos["NextHaloInFOFgroup"][next_in_chain]
 
+                        print(forest_halos["NextHaloInFOFgroup"])
+                        tmp += 1
+                        if tmp > 5:
+                            exit()
                         if debug:
                             print("Curr Halo: {0}\tNext In Chain: "
                                   "{1}\tflyby_inds: {2}\tFlyby Ind "
-                                  "{3}".format(curr_halo, next_in_chain,
-                                               flyby_inds, flyby_ind))
+                                  "{3}\ttrue_fof_idx {4}" \
+                                  .format(curr_halo, next_in_chain, flyby_inds,
+                                          flyby_ind,
+                                          true_fof_idx)) 
+
+                            print(forest_halos["NextHaloInFOFgroup"])
 
                     forest_halos["NextHaloInFOFgroup"][curr_halo] = flyby_ind
                     next_in_chain = flyby_ind
@@ -461,13 +475,13 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
             # The VELOCIraptor + Treefrog trees point to themselves when
             # they terminate.  However LHalo Trees requires these to be -1,
-            # so find the instances where `NextProgenitor` and
-            # `FirstProgenitor` point to themselves and adjust them to -1.
+            # so find the instances where  `FirstProgenitor` point to
+            # themselves and adjust them to -1.
             w = np.arange(NHalos)
-            NextProg_tofix = [x for x in w if x == forest_halos["NextProgenitor"][x]]
+            #NextProg_tofix = [x for x in w if x == forest_halos["NextProgenitor"][x]]
             FirstProg_tofix = [x for x in w if x == forest_halos["FirstProgenitor"][x]]
 
-            forest_halos["NextProgenitor"][NextProg_tofix] = -1
+            #forest_halos["NextProgenitor"][NextProg_tofix] = -1
             forest_halos["FirstProgenitor"][FirstProg_tofix] = -1
 
             # All done! Append to the file.
@@ -715,6 +729,7 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
         halos_forest_offset = NHalos_forest_offset[forestID][snap_key]
         halos_forest_inds = list(np.arange(halos_forest_offset,
                                            halos_forest_offset + NHalos_forest_snap))
+        print(halos_forest_inds)
 
         # Then go to the HDF5 file and grab all the required properties.
         forest_halos, halos_offset = fill_LHalo_properties(f_in[snap_key],
@@ -779,9 +794,10 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     # `fix_nextprog()`.
     forest_halos["NextProgenitor"][current_offset:current_offset+NHalos_thissnap] = -1
 
-    # `FirstHaloInFOFgroup` points to itself for the main FoF halo. LHalo Tree
-    # requires -1 but we will fix this later.
+    # `FirstHaloInFOFgroup` is -1 for main FoF halos.  However in the LHaloTree
+    # structure, this should point to itself. 
     forest_halos["FirstHaloInFOFgroup"][current_offset:current_offset+NHalos_thissnap] = f_in["hostHaloID"][halo_indices]
+    
 
     # First find out what the FoF groups are.  Then go through the FoF groups
     # and update the `NextHaloInFOFgroup` pointer.

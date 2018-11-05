@@ -9,6 +9,14 @@ astro3D.genesis.utils package
 Submodules
 ----------
 
+astro3D.genesis.utils.adjust_spec module
+-----------------------------------
+
+.. automodule:: astro3D.genesis.utils.adjust_spec
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 astro3D.genesis.utils.common module
 -----------------------------------
 
