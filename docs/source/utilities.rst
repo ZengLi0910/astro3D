@@ -6,6 +6,16 @@ This directory contains a number of useful tools and utilities for handling the 
 ASTRO3D Genesis simulations.  We have provided a number of example scripts to
 run these tools in the **run_scripts** directory.
 
+adjust_spec
+====================
+
+This utility adjusts the data specification of the default
+``VELOCIraptor``+``Wherewolf`` trees to match the required specification of the
+LHaloTree strucutre. See `LHaloTreeReader
+<https://github.com/manodeep/LHaloTreeReader>`_ for an overview of the LHalo
+tree structure. 
+ 
+
 forest_sorter
 ====================
 

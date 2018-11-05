@@ -10,7 +10,7 @@ import h5py
 from tqdm import tqdm
 import time
 
-__all__ = ("adjust_spec", )
+__all__ = ("adjust_spec", "adjust_hostHaloID", )
 
 
 def adjust_hostHaloID(f_out, haloID_field, FirstHaloInFOFgroup_field,
@@ -75,7 +75,10 @@ def adjust_spec(fname_in, fname_out, haloID_field="ID",
                 FirstHaloInFOFgroup_field="hostHaloID",
                 index_mult_factor=int(1e12)):
     """
-    Adjusts some field of the VELOCIraptor trees to match the LHaloTree Specs.
+    Adjusts some fields of the VELOCIraptor trees to match the LHaloTree Specs.
+
+    Currently calls the following functions:
+        1. :py:mod:`astro3D.genesis.utils.`adjust_hostHaloID`
 
     Parameters
     ----------

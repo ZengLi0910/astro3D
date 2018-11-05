@@ -503,6 +503,7 @@ if __name__ == '__main__':
     """
 
     fname_in = default_fname_in
+    fname_in = "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data"
     fname_out = default_fname_out 
     haloID_field = "ID"
     sort_fields = ["ForestID", "hostHaloID", "Mass_200mean"]
