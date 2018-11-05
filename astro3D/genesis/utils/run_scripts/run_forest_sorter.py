@@ -8,15 +8,15 @@ produced by VELOCIraptor + Treefrog.
 """
 #!/usr/bin:env python
 from __future__ import print_function
-from genesis.utils import forest_sorter as fs
+from astro3D.genesis.utils import forest_sorter as fs
 
 import numpy as np
 
 
 if __name__ == '__main__':
 
-    fname_in = "/fred/oz004/jseiler/genesis/treefrog_trees/new_genesis_version.hdf5"
-    fname_out = "/fred/oz004/jseiler/genesis/treefrog_trees/new_genesis_version_sorted.hdf5"
+    fname_in = "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data"
+    fname_out = "/fred/oz004/jseiler/astro3d/nov2018/N1024_sorted.hdf5"
     haloID_field = "ID"
     sort_fields = ["ForestID", "hostHaloID", "Mass_200mean"]
     sort_direction = np.array([1, 1, -1])

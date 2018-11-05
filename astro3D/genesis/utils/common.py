@@ -175,16 +175,16 @@ def get_snapkeys_and_nums(file_keys):
     Parameters
     ----------
 
-    file_keys: Keys.
+    file_keys : Keys.
         Keys from a given file or dataset.
 
     Returns
     ----------
 
-    Snap_Keys: List of strings.
+    Snap_Keys : List of strings.
         Names of the snapshot keys within the passed keys.
 
-    Snap_Nums: Dictionary of integers keyed by `Snap_Keys`.
+    Snap_Nums : Dictionary of integers keyed by `Snap_Keys`.
         Snapshot number of each snapshot key.
     """
 
