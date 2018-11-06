@@ -11,7 +11,6 @@ from tqdm import trange
 
 import time
 
-np.set_printoptions(threshold=np.nan)
 try:
     from mpi4py import MPI
 except ImportError:
@@ -271,14 +270,14 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos):
         # The final halo terminates with -1.
         forest_halos["NextHaloInFOFgroup"][halos_in_fof_global_inds[-1]] = -1
 
-        print("FoF group {0}\tNextHaloInFOFgroup {1}".format(fof, forest_halos["NextHaloInFOFgroup"][halos_in_fof_global_inds]))
+        #print("FoF group {0}\tNextHaloInFOFgroup {1}".format(fof, forest_halos["NextHaloInFOFgroup"][halos_in_fof_global_inds]))
 
     return forest_halos
 
 
 def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                       forestID_field="ForestID", Nforests=None,
-                      write_binary_flag=1, debug=0):
+                      write_binary_flag=1, fname_alist=None, debug=0):
     """
     Takes the Treefrog trees that have had their IDs corrected to be in LHalo
     format and saves them in LHalo binary format.
@@ -351,6 +350,11 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
     with h5py.File(fname_in, "r") as f_in:
         Snap_Keys, Snap_Nums = cmn.get_snapkeys_and_nums(f_in.keys())
 
+        # Create a txt file that contains all the scalefactors.
+        if fname_alist:
+            write_alist(f_in, fname_alist, Snap_Keys)
+            print("Saved alist to {0}".format(fname_alist))
+
         NHalos_forest, NHalos_forest_offset = cmn.get_halos_per_forest(f_in,
                                                                        Snap_Keys,
                                                                        haloID_field,
@@ -387,7 +391,6 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         totNHalos = 0
         global_halos_per_forest = []
 
-        forests_to_process = [forests_to_process[659]] 
         for forestID in forests_to_process:
             # NHalos_forest is a nested dictionary accessed by each forestID.
             halos_per_forest = sum(NHalos_forest[forestID].values())
@@ -415,7 +418,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
             f_out = h5py.File(my_fname_out, "a")
 
         for count, forestID in enumerate(forests_to_process):
-            if count % 1 == 0:
+            if count % int(len(forests_to_process)/10) == 0:
                 print("Rank {0} processed {1} Forests ({2:.2f} seconds "
                       "elapsed).".format(rank, count,
                                          time.time()-start_time))
@@ -447,11 +450,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                     while next_in_chain != -1:
                         curr_halo = next_in_chain
                         next_in_chain = forest_halos["NextHaloInFOFgroup"][next_in_chain]
-
-                        print(forest_halos["NextHaloInFOFgroup"])
-                        tmp += 1
-                        if tmp > 5:
-                            exit()
+                       
                         if debug:
                             print("Curr Halo: {0}\tNext In Chain: "
                                   "{1}\tflyby_inds: {2}\tFlyby Ind "
@@ -515,7 +514,6 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                     f_out[group_name][name] = array
 
         # End of Forests Loop.
-
         f_out.close()
 
     # Input HDF5 file closed.
@@ -531,6 +529,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         hdf5_fname_out = "{0}.{1}.hdf5".format(fname_out, rank)
         convert_binary_to_hdf5(my_fname_out, hdf5_fname_out)
         print("Binary file also converted to HDF5.")
+
 
 
 def determine_forests(NHalos_forest, all_forests):
@@ -729,7 +728,6 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
         halos_forest_offset = NHalos_forest_offset[forestID][snap_key]
         halos_forest_inds = list(np.arange(halos_forest_offset,
                                            halos_forest_offset + NHalos_forest_snap))
-        print(halos_forest_inds)
 
         # Then go to the HDF5 file and grab all the required properties.
         forest_halos, halos_offset = fill_LHalo_properties(f_in[snap_key],
@@ -943,3 +941,34 @@ def get_hubble_h(f_in):
     hubble_h = f_in["Header"]["Cosmology"].attrs["h_val"]
 
     return hubble_h
+
+def write_alist(f_in, fname_alist, Snap_Keys):
+    """
+    Saves the scale factor values of the snapshots to a file.
+
+    Parameters
+    ----------
+
+    f_in : Open HDF5 File.
+        The open HDF5 file we're reading the data from.
+
+    fname_alist : String.
+        Full path to the file we're writing to..
+
+    Snap_Keys : List of strings.
+        Names of the snapshot keys used to access the HDF5 file. 
+
+    Returns
+    ----------
+
+    None.
+    """
+
+    alist = []
+
+    for key in Snap_Keys:
+        snap_a = f_in[key].attrs["scalefactor"]
+
+        alist.append(snap_a)
+
+    np.savetxt(fname_alist, alist)    
