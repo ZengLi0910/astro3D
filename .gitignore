@@ -1,3 +1,7 @@
+# ================ #
+# GitHub Generated #
+# ================ #
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -103,11 +107,22 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-=======
-*.npz
-*.png
-*.lprof
-data/
+
 
 # Misc
 .DS_store
+
+
+# ================ #
+# Personally Added # 
+# ================ #
+
+# Images
+*.png
+
+# Data Files
+*.npz
+data/
+
+# Profiling
+*.lprof
