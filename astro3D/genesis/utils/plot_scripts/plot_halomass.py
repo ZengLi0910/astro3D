@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import h5py
 
 colors = ["k", "#dd1c77", "#3182bd", "#f03b20", "#31a354"] 
 dashes = ['',
@@ -54,6 +55,37 @@ def load_LHaloTree_halos(fname):
     return halos
 
 
+def load_genesis_halo_mass(fname, snapnum):
+    """
+    Loads the Halos of the Genesis HDF5 file at a specific snapshot. 
+
+    Parameters
+    ----------
+
+    fname : String.
+        The full path to the file.
+
+    snapnum : Integer.
+        The snapshot number we're reading.
+
+    Returns
+    ----------
+
+    halo_mass : List of integers. 
+        The mass of the halos at the specified snapshot. Units are log10(Msun).
+    """
+
+    snap_key = "Snap_{0:03d}".format(snapnum)
+
+    with h5py.File(fname, "r") as f_in:
+
+        hubble_h = f_in["Header"]["Cosmology"].attrs["h_val"]
+
+        mass = np.log10(f_in[snap_key]["Mass_200mean"][:] * 1.0e10)# / hubble_h)
+
+    return mass
+
+
 def read_LHaloTree_header(f_in):
     """
     Reads the header information of an *open* LHaloTree binary file.
@@ -93,7 +125,7 @@ def read_LHaloTree_header(f_in):
     return Nforests, totNHalos, halos_per_forest
  
 
-def update_HMF(current_HMF, halos, mstar_bins, hubble_h):
+def update_HMF(current_HMF, halos, mstar_bins, hubble_h, mass=None, snapnum=None):
     """
     Updates the current Halo Mass Function.
 
@@ -113,6 +145,10 @@ def update_HMF(current_HMF, halos, mstar_bins, hubble_h):
     hubble_h : Float.
         The little h Hubble parameter associated with these halos.
 
+    snapnum : Integer, optional.
+        The snapshot number we're updating the HMF for. Only halos at this
+        snapshot will be counted.
+
     Returns
     ----------
 
@@ -127,7 +163,14 @@ def update_HMF(current_HMF, halos, mstar_bins, hubble_h):
 
     """ 
 
-    mass = np.log10(halos["Mvir"] * 1.0e10 / hubble_h)
+    if snapnum:
+        w = np.where(halos["SnapNum"] == snapnum)[0]
+    else:
+        w = np.arange(len(halos))
+
+    if mass is None:
+        mass = np.log10(halos["Mvir"][w] * 1.0e10 / hubble_h)
+
     this_HMF = np.histogram(mass, bins=mstar_bins)
 
     updated_HMF = current_HMF + this_HMF[0]
@@ -185,7 +228,7 @@ def plot_HMF(mstar_bins, mstar_bin_width, HMF, model_tags, output_dir,
                 dashes=dashes[model_number],
                 label=label)
             
-        ax.set_xlim([5.8, 10.3])
+        ax.set_xlim([min(mstar_bins)-0.3, max(mstar_bins)+0.3])
         ax.set_xlabel(r'$\mathbf{log_{10} \: M \:[M_{\odot}]}$', 
                       fontsize=fontsize)
 
@@ -210,19 +253,26 @@ def plot_HMF(mstar_bins, mstar_bin_width, HMF, model_tags, output_dir,
 if __name__ == '__main__':
 
 
-    fname_base = ["/fred/oz070/jseiler/astro3d/nov2018/N1024_converted"]
-    hubble_h = [0.671]
-    boxsize = [500] # Mpc/h.
+    fname_base = ["/fred/oz070/jseiler/astro3d/nov2018/N1024_converted",
+                  "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data",
+                  "/fred/oz070/jseiler/astro3d/nov2018/N1024_hosthaloIDfixed.hdf5",
+                  "/fred/oz070/jseiler/astro3d/nov2018/N1024_sorted.hdf5",
+                  "/fred/oz070/jseiler/astro3d/nov2018/N1024_lhalo_indices.hdf5"]
+    hubble_h = [0.671, 0.671, 0.671, 0.671, 0.671]
+    boxsize = [500, 500, 500, 500, 500] # Mpc/h.
+    snapnum = [100, 100, 100, 100, 100]
+    file_type = ["binary", "hdf5", "hdf5", "hdf5", "hdf5"]
 
-    model_tags = ["Genesis N1024"]
+    model_tags = ["Mine N1024", "Base", "hostHaloIDfixed", "sorted",
+                  "lhalo-indices"]
     output_dir = "."
     output_format = "png"
 
-    num_models = 1
+    num_models = 5
     num_files = 32
 
     # Parameters for the binning.
-    mstar_bin_low = 5.0
+    mstar_bin_low = 9.0
     mstar_bin_high = 14.0
     mstar_bin_width = 0.2
     mstar_Nbins = int((mstar_bin_high - mstar_bin_low) / mstar_bin_width)
@@ -239,21 +289,40 @@ if __name__ == '__main__':
         HMF_allmodels[model_number].append(np.zeros(mstar_Nbins,
                                                     dtype=np.float32))
 
-        for filenr in range(num_files):
+        if file_type[model_number] == "binary": 
 
-            fname = "{0}.{1}".format(fname_base[model_number], filenr)
-            halos = load_LHaloTree_halos(fname)
+            for filenr in range(num_files):
+
+                fname = "{0}.{1}".format(fname_base[model_number], filenr)
+                halos = load_LHaloTree_halos(fname)
+
+                HMF_allmodels[model_number] = update_HMF(HMF_allmodels[model_number],
+                                                         halos, mstar_bins,
+                                                         hubble_h[model_number],
+                                                         snapnum=snapnum[model_number])
+ 
+        elif file_type[model_number] == "hdf5":
+
+            fname = fname_base[model_number]
+            mass = load_genesis_halo_mass(fname, snapnum[model_number])
 
             HMF_allmodels[model_number] = update_HMF(HMF_allmodels[model_number],
-                                                     halos, mstar_bins,
-                                                     hubble_h[model_number])
-  
+                                                     [], mstar_bins,
+                                                     hubble_h[model_number],
+                                                     mass=mass)
+
+
+        else:
+            print("The only valid options for `file_type` is 'binary' or "
+                  "'hdf5'. For Model {0} you entered {1}".format(model_number,
+                  file_type[model_number]))
+        print(HMF_allmodels[model_number])
         HMF_allmodels[model_number] = np.divide(HMF_allmodels[model_number],
                                                 pow(boxsize[model_number], 3) /
                                                 pow(hubble_h[model_number], 3) *
                                                 mstar_bin_width)
 
-        print(HMF_allmodels[model_number])
+
 
     plot_HMF(mstar_bins, mstar_bin_width, HMF_allmodels, model_tags,
              output_dir, "HMF", output_format)
