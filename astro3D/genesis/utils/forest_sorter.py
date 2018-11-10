@@ -148,6 +148,7 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         print("Generating the dictionary to map the oldIDs to the newIDs.")
 
         start_time = time.time()
+        
         for snap_key in tqdm(Snap_Keys):
             # We only want to go through snapshots that contain halos.
             if len(f_in[snap_key][haloID_field]) == 0:
@@ -185,7 +186,15 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         # and when it's cast to an integer will result in 0.
         # So the 'Snapshot Number' for values of -1 will be 0.  We want to
         # preserve these -1 flags so we map -1 to -1.
-        ID_maps[0] = {-1: -1}
+
+        # However we also need to preserve the dictionary for `Snap_000`...
+        oldID_maps_zero_keys = list(ID_maps[0].keys())
+        oldID_maps_zero_values = list(ID_maps[0].values())
+       
+        ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
+                              oldID_maps_zero_values + [-1]))
+ 
+        #ID_maps[0] = {-1: -1}
 
         end_time = time.time()
         print("Creation of dictionary map took {0:3f} seconds"
@@ -235,8 +244,21 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
                     oldID = f_in[key][field][:]
                     snapnum = cmn.temporalID_to_snapnum(oldID,
                                                         index_mult_factor)
-                    newID = [ID_maps[snap][ID] for snap, ID in zip(snapnum,
-                                                                   oldID)]
+
+                    newID = np.empty(len(oldID))
+
+                    for count, (snap, ID) in enumerate(zip(snapnum, oldID)):    
+                        try:
+                            newID[count] = ID_maps[snap][ID]
+                        except KeyError:
+                            print("Encountered a KeyError when mapping the oldID "
+                                  "to the newID.")
+                            print("Field {0} \tSnapnum {1}\tOldID "
+                                  "{2}\tID_maps[snap] {2}".format(field, snapnum,
+                                                                  ID,
+                                                                  ID_maps[snap])) 
+                            raise KeyError
+
                     to_write = np.array(newID)  # Remember what we need to write.
                 else:
                     to_write = f_in[key][field][:]
