@@ -188,14 +188,16 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         # preserve these -1 flags so we map -1 to -1.
 
         # However we also need to preserve the dictionary for `Snap_000`...
-        oldID_maps_zero_keys = list(ID_maps[0].keys())
-        oldID_maps_zero_values = list(ID_maps[0].values())
-       
-        ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
-                              oldID_maps_zero_values + [-1]))
- 
-        #ID_maps[0] = {-1: -1}
 
+        try:
+            oldID_maps_zero_keys = list(ID_maps[0].keys())
+            oldID_maps_zero_values = list(ID_maps[0].values())
+        except KeyError:
+            ID_maps[0] = {-1: -1}
+        else:
+            ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
+                                  oldID_maps_zero_values + [-1]))
+ 
         end_time = time.time()
         print("Creation of dictionary map took {0:3f} seconds"
               .format(end_time - start_time))
