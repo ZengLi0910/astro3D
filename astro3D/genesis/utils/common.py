@@ -283,7 +283,7 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
     NHalos_forest = {}
     NHalos_forest_offset = {}
 
-    for count, snap_key in enumerate(tqdm(Snap_Keys)):
+    for count, snap_key in enumerate((Snap_Keys)):
         if len(f_in[snap_key][haloID_field]) == 0:  # Skip empty snapshots.
             continue
 
@@ -293,9 +293,11 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
         # First get the number of halos in each forest then grab the indices
         # (i.e., the forestID as we start from 0) of the forests that have
         # halos.
+        print("{0}\t{1}".format(snap_key, halo_forestids))
+
         forests_binned = np.bincount(halo_forestids)
         forestIDs = np.nonzero(forests_binned)[0]
-
+        print(forests_binned)
         for forest_id in forestIDs:
             this_snap_NHalos = forests_binned[forest_id]
 

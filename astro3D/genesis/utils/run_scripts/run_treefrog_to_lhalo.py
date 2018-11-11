@@ -14,16 +14,18 @@ import sys
 
 if __name__ == '__main__':
 
-    fname_in = "/fred/oz004/jseiler/astro3d/nov2018/N1024_lhalo_indices.hdf5"
-    #fname_in = "/fred/oz004/jseiler/genesis/treefrog_trees/new_genesis_version_lhalo_indices.hdf5"
-    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/N1024_converted"
-    #fname_out = "/fred/oz004/jseiler/genesis/treefrog_trees/test"
+    fname_in = "/fred/oz070/jseiler/astro3d/nov2018/N1024_lhalo_indices.hdf5"
+    #fname_out = "/fred/oz070/jseiler/astro3d/nov2018/N1024_converted"
+    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/tmp"
     haloID_field = "ID"
     forestID_field = "ForestID"
-    Nforests = 1000
-    write_binary_flag = 2
-    debug = 1
+    Nforests = None 
+    write_binary_flag = 1 
+    fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/N1024_alist"
+    dry_run = 1
+    debug = 0
 
     frog_to_l.treefrog_to_lhalo(fname_in, fname_out,
                                 haloID_field, forestID_field, Nforests,
-                                write_binary_flag, debug)
+                                write_binary_flag, fname_alist=fname_alist,
+                                dry_run=dry_run, debug=debug)

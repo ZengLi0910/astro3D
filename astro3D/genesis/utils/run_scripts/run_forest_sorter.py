@@ -15,8 +15,8 @@ import numpy as np
 
 if __name__ == '__main__':
 
-    fname_in = "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data"
-    fname_out = "/fred/oz004/jseiler/astro3d/nov2018/N1024_sorted.hdf5"
+    fname_in = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048_hosthaloIDfixed.hdf5"
+    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048_sorted.hdf5"
     haloID_field = "ID"
     sort_fields = ["ForestID", "hostHaloID", "Mass_200mean"]
     sort_direction = np.array([1, 1, -1])

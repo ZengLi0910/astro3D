@@ -139,7 +139,19 @@ def convert_indices(fname_in, fname_out,
         # be less than 1 and when it's cast to an integer will result in 0.
         # So the 'Snapshot Number' for values of -1 will be 0.  We want to
         # preserve these -1 flags so we map -1 to -1.
-        ID_maps[0] = {-1: -1}
+
+        # However we also need to preserve the dictionary for `Snap_000`...
+
+        try:
+            oldID_maps_zero_keys = list(ID_maps[0].keys())
+            oldID_maps_zero_values = list(ID_maps[0].values())
+        except KeyError:
+            # Catch for case where no halos at Snapshot 0 (hence ID_maps[0]
+            # won't exist).
+            ID_maps[0] = {-1: -1}
+        else:
+            ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
+                                  oldID_maps_zero_values + [-1]))
 
         end_time = time.time()
         print("Creation of dictionary took {0:3f} "

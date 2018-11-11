@@ -10,7 +10,7 @@ adjust_spec
 ====================
 
 This utility adjusts the data specification of the default
-``VELOCIraptor``+``Wherewolf`` trees to match the required specification of the
+``VELOCIraptor`` + ``Wherewolf`` trees to match the required specification of the
 LHaloTree strucutre. See `LHaloTreeReader
 <https://github.com/manodeep/LHaloTreeReader>`_ for an overview of the LHalo
 tree structure. 

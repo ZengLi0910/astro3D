@@ -15,8 +15,8 @@ import numpy as np
 
 if __name__ == '__main__':
 
-    fname_in = "/fred/oz004/jseiler/astro3d/nov2018/N1024_sorted.hdf5"
-    fname_out = "/fred/oz004/jseiler/astro3d/nov2018/N1024_lhalo_indices.hdf5"
+    fname_in = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/L105_N2048_sorted.hdf5"
+    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/L105_N2048_lhalo_indices.hdf5"
 
     haloID_field = "ID"
     forestID_field = "ForestID"

@@ -15,8 +15,8 @@ import numpy as np
 
 if __name__ == '__main__':
 
-    fname_in = "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data"
-    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/N1024_hosthaloIDfixed.hdf5"
+    fname_in = "/fred/oz009/pelahi/GENESIS/L105_N2048/newtree/VELOCIraptor.tree.t4.0-189.unifiedforest.hdf5"
+    fname_out = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048_hosthaloIDfixed.hdf5"
     haloID_field = "ID"
     FirstHaloInFOFgroup_field = "hostHaloID"
     index_mult_factor = 1e12

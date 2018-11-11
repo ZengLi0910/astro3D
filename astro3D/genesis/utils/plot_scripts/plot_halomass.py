@@ -50,7 +50,7 @@ def load_LHaloTree_halos(fname):
         Nforests, totNHalos, halos_per_forest = read_LHaloTree_header(f_in)
 
         halos = np.empty(totNHalos, dtype=LHalo_Desc)
-        halos = np.fromfile(f_in, LHalo_Desc, Nforests) 
+        halos = np.fromfile(f_in, LHalo_Desc, totNHalos) 
 
     return halos
 
@@ -252,7 +252,6 @@ def plot_HMF(mstar_bins, mstar_bin_width, HMF, model_tags, output_dir,
 
 if __name__ == '__main__':
 
-
     fname_base = ["/fred/oz070/jseiler/astro3d/nov2018/N1024_converted",
                   "/fred/oz009/N1024/unifiedcatalogs/VELOCIraptor.tree.t4.unifiedhalotree.links.snap.hdf.data",
                   "/fred/oz070/jseiler/astro3d/nov2018/N1024_hosthaloIDfixed.hdf5",
@@ -268,7 +267,7 @@ if __name__ == '__main__':
     output_dir = "."
     output_format = "png"
 
-    num_models = 5
+    num_models = 1
     num_files = 32
 
     # Parameters for the binning.
@@ -291,21 +290,32 @@ if __name__ == '__main__':
 
         if file_type[model_number] == "binary": 
 
+            NHalos = 0
             for filenr in range(num_files):
 
                 fname = "{0}.{1}".format(fname_base[model_number], filenr)
                 halos = load_LHaloTree_halos(fname)
+                NHalos += len(halos)
 
                 HMF_allmodels[model_number] = update_HMF(HMF_allmodels[model_number],
                                                          halos, mstar_bins,
                                                          hubble_h[model_number],
                                                          snapnum=snapnum[model_number])
- 
+
+            print("Mine: ALL NHalos {0}".format(NHalos))
+            print("Mine: Snap {0} NHalos {1}".format(snapnum, np.sum(HMF_allmodels[model_number]))) 
+
         elif file_type[model_number] == "hdf5":
 
             fname = fname_base[model_number]
-            mass = load_genesis_halo_mass(fname, snapnum[model_number])
 
+            NHalos = 0
+            for snap in np.arange(0, 101):
+                mass = load_genesis_halo_mass(fname, snap) 
+                NHalos += len(mass)
+                print("Snap {0} NHalos {1}".format(snap, len(mass))) 
+            print("TOTAL Halos {0}".format(NHalos))
+            print("")
             HMF_allmodels[model_number] = update_HMF(HMF_allmodels[model_number],
                                                      [], mstar_bins,
                                                      hubble_h[model_number],
@@ -316,7 +326,8 @@ if __name__ == '__main__':
             print("The only valid options for `file_type` is 'binary' or "
                   "'hdf5'. For Model {0} you entered {1}".format(model_number,
                   file_type[model_number]))
-        print(HMF_allmodels[model_number])
+        print("Model {0} HMF {1} NHalos {2}".format(model_number, HMF_allmodels[model_number],
+                                                    np.sum(HMF_allmodels[model_number])))
         HMF_allmodels[model_number] = np.divide(HMF_allmodels[model_number],
                                                 pow(boxsize[model_number], 3) /
                                                 pow(hubble_h[model_number], 3) *

@@ -193,6 +193,8 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
             oldID_maps_zero_keys = list(ID_maps[0].keys())
             oldID_maps_zero_values = list(ID_maps[0].values())
         except KeyError:
+            # Catch for case where no halos at Snapshot 0 (hence ID_maps[0]
+            # won't exist).
             ID_maps[0] = {-1: -1}
         else:
             ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
