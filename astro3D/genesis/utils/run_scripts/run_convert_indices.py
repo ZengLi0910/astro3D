@@ -1,7 +1,7 @@
 """
-This file contains an example for running the `convert_indices` and
-`write_lhalo_binary` functions within`converter.py`.  Refer to the
-documentation of those function for full explanation of each variable.
+This file contains an example for running the `convert_indices` function
+within `convert_indices.py`.  Refer to the documentation of this function
+for full explanation of each variable.
 
 The default parameters are chosen to match the ASTRO3D Genesis trees as
 produced by VELOCIraptor + Treefrog.
