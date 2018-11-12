@@ -293,11 +293,12 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
         # First get the number of halos in each forest then grab the indices
         # (i.e., the forestID as we start from 0) of the forests that have
         # halos.
-        print("{0}\t{1}".format(snap_key, halo_forestids))
+        print("{0}\thalo_forestIDs {1}".format(snap_key, halo_forestids))
 
         forests_binned = np.bincount(halo_forestids)
         forestIDs = np.nonzero(forests_binned)[0]
-        print(forests_binned)
+
+        print("{0}\tforestIDs {1}".format(snap_key, forestIDs))
         for forest_id in forestIDs:
             this_snap_NHalos = forests_binned[forest_id]
 
@@ -311,6 +312,8 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
                 NHalos_forest_offset[forest_id] = {snap_key: halos_counted}
 
             halos_counted += this_snap_NHalos
+
+        print("{0}\tNHalos_forest {1}".format(snap_key, NHalos_forest))
 
     end_time = time.time()
     print("Creation of number of halos per forest took {0:3f} seconds."
