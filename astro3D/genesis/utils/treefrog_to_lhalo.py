@@ -364,10 +364,17 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
             write_alist(f_in, fname_alist, Snap_Keys)
             print("Saved alist to {0}".format(fname_alist))
 
+        # If we're running in parallel, don't use the tqdm progress bar.
+        if size > 1:
+            is_mpi = True
+        else:
+            is_mpi = False
+
         NHalos_forest, NHalos_forest_offset = cmn.get_halos_per_forest(f_in,
                                                                        Snap_Keys,
                                                                        haloID_field,
-                                                                       forestID_field)
+                                                                       forestID_field,
+                                                                       is_mpi)
 
         # Find the max value of the object where the compared
         # values are returned via the "key". In this case,

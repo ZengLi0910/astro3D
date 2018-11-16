@@ -223,7 +223,7 @@ def copy_group(file_in, file_out, key):
 
 
 def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
-                         forestID_field="ForestID"):
+                         forestID_field="ForestID", is_mpi=0, debug=0):
     """
     Determines the number of halos in each forest.
 
@@ -253,6 +253,14 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
 
     forestID_field: String. Default: 'ForestID'.
         Field name within the HDF5 file that corresponds to forest ID.
+
+    is_mpi : Integer 
+        Flag to denote whether this function has been called with multiple
+        processors. If not 0, turns off the progress bar from ``tqdm``.
+
+    debug : Integer
+        Flag to denote whether extra debugging information should be printed to
+        ``stdout``.
  
     Returns
     ----------
@@ -283,7 +291,14 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
     NHalos_forest = {}
     NHalos_forest_offset = {}
 
-    for count, snap_key in enumerate((Snap_Keys)):
+    # If this function has been called with multiple processors, then don't use
+    # the tqdm progress bar.
+    if is_mpi:
+        snap_key_loop = enumerate(Snap_Keys)
+    else:
+        snap_key_loop = enumerate(tqdm(Snap_Keys))
+
+    for count, snap_key in snap_key_loop: 
         if len(f_in[snap_key][haloID_field]) == 0:  # Skip empty snapshots.
             continue
 
@@ -293,14 +308,19 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
         # First get the number of halos in each forest then grab the indices
         # (i.e., the forestID as we start from 0) of the forests that have
         # halos.
-        print("{0}\thalo_forestIDs {1}".format(snap_key, halo_forestids))
+        if debug:
+            print("{0}\thalo_forestIDs {1}".format(snap_key, halo_forestids))
 
-        forests_binned = np.bincount(halo_forestids)
-        forestIDs = np.nonzero(forests_binned)[0]
+        forestIDs, halos_in_forest = np.unique(halo_forestids,
+                                               return_counts=True)
 
-        print("{0}\tforestIDs {1}".format(snap_key, forestIDs))
-        for forest_id in forestIDs:
-            this_snap_NHalos = forests_binned[forest_id]
+        if debug:
+            print("{0}\tforestIDs {1}\thalos_in_forest {2}".format(snap_key,
+                                                                   forestIDs,
+                                                                   halos_in_forest))
+
+        for forest_num, forest_id in enumerate(forestIDs):
+            this_snap_NHalos = halos_in_forest[forest_num]
 
             # The first time a forest appears it won't have a corresponding key
             # in the nested dictionary so create it if it's the case.
@@ -313,7 +333,8 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
 
             halos_counted += this_snap_NHalos
 
-        print("{0}\tNHalos_forest {1}".format(snap_key, NHalos_forest))
+        if debug:
+            print("{0}\tNHalos_forest {1}".format(snap_key, NHalos_forest))
 
     end_time = time.time()
     print("Creation of number of halos per forest took {0:3f} seconds."
