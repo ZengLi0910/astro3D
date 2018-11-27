@@ -11,7 +11,8 @@ __all__ = ("convert_indices", )
 def convert_indices(fname_in, fname_out,
                     haloID_field="ID", forestID_field="ForestID",
                     ID_fields=["Head", "Tail", "RootHead", "RootTail", "ID",
-                               "hostHaloID"], index_mult_factor=int(1e12)):
+                               "hostHaloID"], index_mult_factor=int(1e12),
+                    debug=0):
     """
     Converts temporally unique tree IDs to ones that are forest-local as
     required by the LHalo Trees format.
@@ -81,18 +82,24 @@ def convert_indices(fname_in, fname_out,
                                                                        haloID_field,
                                                                        forestID_field)
 
-        print("Copying the old tree file to a new one.")
-        for key in tqdm(f_in.keys()):
-            cmn.copy_group(f_in, f_out, key)
-
         print("Now creating a dictionary that maps the old, global indices to "
               "ones that are forest-local.")
 
         start_time = time.time()
 
-        NHalos_processed = np.zeros(len(NHalos_forest.keys()))
-        Forests_InSnap = {}
+        # NHalos_processed is a dictionary, indexed by the forest number, and
+        # represents the number of Halos in this forest that have already been
+        # processed.
+        NHalos_processed = {}
+        for forest in NHalos_forest.keys():
+            NHalos_processed[forest] = 0
+
         ID_maps = {}
+
+        if debug:
+            print("There are a total of {0} "
+                  "forests.".format(len(NHalos_forest.keys())))
+
         for snap_key in tqdm(Snap_Keys[::-1]):
             try:
                 NHalos = len(f_in[snap_key][haloID_field])
@@ -106,21 +113,27 @@ def convert_indices(fname_in, fname_out,
 
             forests_thissnap = np.unique(f_in[snap_key][forestID_field][:])
 
-            Forests_InSnap[snap_key] = forests_thissnap
-
             oldIDs = f_in[snap_key][haloID_field][:]
+
+            if debug:
+                print("For {0} the forests are {1}".format(snap_key,
+                                                           forests_thissnap))
+                print("The oldIDs for the halos in this snapshot are "
+                      "{0}".format(oldIDs))
 
             for forest in forests_thissnap:
 
                 NHalos_snapshot = NHalos_forest[forest][snap_key]
                 offset = NHalos_forest_offset[forest][snap_key]
 
+                NHalos_been_processed = NHalos_processed[forest]
+
                 idx_lower = offset
                 idx_upper = NHalos_snapshot + offset
 
                 oldIDs_thisforest = oldIDs[idx_lower:idx_upper]
-                newIDs_thisforest = np.arange(NHalos_processed[forest-1],
-                                              NHalos_processed[forest-1] + NHalos_snapshot)
+                newIDs_thisforest = np.arange(NHalos_been_processed,
+                                              NHalos_been_processed + NHalos_snapshot)
 
                 for val1, val2 in zip(oldIDs_thisforest, newIDs_thisforest):
                     oldIDs_global.append(int(val1))
@@ -156,6 +169,10 @@ def convert_indices(fname_in, fname_out,
         end_time = time.time()
         print("Creation of dictionary took {0:3f} "
               "seconds.".format(end_time - start_time))
+
+        print("Copying the old tree file to a new one.")
+        for key in tqdm(f_in.keys()):
+            cmn.copy_group(f_in, f_out, key)
 
         print("Now going through all the snapshots and updating the IDs.")
         start_time = time.time()
