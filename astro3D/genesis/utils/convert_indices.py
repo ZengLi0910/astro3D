@@ -139,7 +139,7 @@ def convert_indices(fname_in, fname_out,
                     oldIDs_global.append(int(val1))
                     newIDs_global.append(int(val2))
 
-                NHalos_processed[forest-1] += NHalos_snapshot
+                NHalos_processed[forest] += NHalos_snapshot
 
             oldIDs_to_newIDs = dict(zip(list(oldIDs_global),
                                         list(newIDs_global)))

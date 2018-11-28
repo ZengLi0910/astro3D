@@ -24,7 +24,8 @@ if __name__ == '__main__':
     sort_direction = np.array([1, 1, -1])
     ID_fields = ["Head", "Tail", "RootHead", "RootTail", "ID", "hostHaloID"]
     index_mult_factor = 1e12
+    debug = 1
 
     converter.convert_indices(fname_in, fname_out,
                               haloID_field, forestID_field,
-                              ID_fields, index_mult_factor)
+                              ID_fields, index_mult_factor, debug)
