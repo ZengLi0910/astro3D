@@ -77,10 +77,8 @@ def convert_indices(fname_in, fname_out,
 
         Snap_Keys, Snap_Nums = cmn.get_snapkeys_and_nums(f_in.keys())
 
-        NHalos_forest, NHalos_forest_offset = cmn.get_halos_per_forest(f_in,
-                                                                       Snap_Keys,
-                                                                       haloID_field,
-                                                                       forestID_field)
+        NHalos_forest_per_snap, NHalos_forest_per_snapoffset = \
+            cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field, forestID_field)
 
         print("Now creating a dictionary that maps the old, global indices to "
               "ones that are forest-local.")
@@ -91,14 +89,14 @@ def convert_indices(fname_in, fname_out,
         # represents the number of Halos in this forest that have already been
         # processed.
         NHalos_processed = {}
-        for forest in NHalos_forest.keys():
+        for forest in NHalos_forest_per_snap.keys():
             NHalos_processed[forest] = 0
 
         ID_maps = {}
 
         if debug:
             print("There are a total of {0} "
-                  "forests.".format(len(NHalos_forest.keys())))
+                  "forests.".format(len(NHalos_forest_per_snap.keys())))
 
         for snap_key in tqdm(Snap_Keys[::-1]):
             try:
@@ -123,8 +121,8 @@ def convert_indices(fname_in, fname_out,
 
             for forest in forests_thissnap:
 
-                NHalos_snapshot = NHalos_forest[forest][snap_key]
-                offset = NHalos_forest_offset[forest][snap_key]
+                NHalos_snapshot = NHalos_forest_per_snap[forest][snap_key]
+                offset = NHalos_forest_per_snap_offset[forest][snap_key]
 
                 NHalos_been_processed = NHalos_processed[forest]
 

@@ -7,19 +7,21 @@ from astro3D.genesis.utils import common as cmn
 
 import numpy as np
 import h5py
+import tqdm
+from tqdm import tqdm
 from tqdm import trange
 
 import time
 
-try:
-    from mpi4py import MPI
-except ImportError:
-    rank = 0
-    size = 1
-else:
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+#try:
+#    from mpi4py import MPI
+#except ImportError:
+rank = 0
+size = 1
+#else:
+#    comm = MPI.COMM_WORLD
+#    rank = comm.Get_rank()
+#    size = comm.Get_size()
 
 __all__ = ("treefrog_to_lhalo", )
 
@@ -380,7 +382,8 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         # values are returned via the "key". In this case,
         # compares the integer Snapshot number values, and then
         # returns the "Snapshot_group" key in the Snap_Keys dictionary.
-        # Taken from
+        # Note to future Jacob: Manodeep wrote this comment so that's why it
+        # doesn't make sense. Code Taken from
         # https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
         last_snap_key = max(Snap_Nums, key=Snap_Nums.get)
 
@@ -753,8 +756,9 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
                       # proper place.
 
     # Start at the root redshift and work our way up the tree.
-    for snap_key in Snap_Keys[::-1]:
+    for snap_key in tqdm(Snap_Keys[::-1]):
 
+        print(snap_key)
         # Get the number, index offset and the corresponding indices for halos
         # at this snapshot.
         try:
@@ -766,6 +770,7 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
         halos_forest_inds = list(np.arange(halos_forest_offset,
                                            halos_forest_offset + NHalos_forest_snap))
 
+        print("Filling {0} Halos".format(len(halos_forest_inds)))
         # Then go to the HDF5 file and grab all the required properties.
         forest_halos, halos_offset = fill_LHalo_properties(f_in[snap_key],
                                                            forest_halos,
@@ -823,16 +828,21 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     scale_factor = f_in.attrs['scalefactor']
 
     forest_halos["Descendant"][current_offset:current_offset+NHalos_thissnap] = f_in["Head"][halo_indices]
+    print("Got Desc")
     forest_halos["FirstProgenitor"][current_offset:current_offset+NHalos_thissnap] = f_in["Tail"][halo_indices]
+
+    print("Got FirstProg")
 
     # Initialize `NextProgenitor` with -1 and then fix it later with function
     # `fix_nextprog()`.
     forest_halos["NextProgenitor"][current_offset:current_offset+NHalos_thissnap] = -1
+    print("Got NextProg")
 
     # `FirstHaloInFOFgroup` is -1 for main FoF halos.  However in the LHaloTree
     # structure, this should point to itself. 
     forest_halos["FirstHaloInFOFgroup"][current_offset:current_offset+NHalos_thissnap] = f_in["hostHaloID"][halo_indices]
     
+    print("Got FirstHaloInFOFgroup")
 
     # First find out what the FoF groups are.  Then go through the FoF groups
     # and update the `NextHaloInFOFgroup` pointer.
@@ -842,27 +852,51 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     forest_halos = fix_nextsubhalo(forest_halos, fof_groups, current_offset,
                                    NHalos_thissnap)
 
+    print("Fixed NextHaloInFOFgroup")
+
     # All merger pointers are now done, read in the halo properties.
     forest_halos["Len"][current_offset:current_offset+NHalos_thissnap] = f_in["npart"][halo_indices]
+    print("Got Len")
+
     forest_halos["M_Mean200"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200mean"][halo_indices] * hubble_h
+
+    print("Got M_Mean200")
+
     forest_halos["Mvir"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200crit"][halo_indices] * hubble_h
+
+    print("Got Mvir")
+
     forest_halos["M_TopHat"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200crit"][halo_indices] * hubble_h
 
+    print("Got M_TopHat")
     # Positions are in Co-moving Units #
     forest_halos["Posx"][current_offset:current_offset+NHalos_thissnap] = f_in["Xc"][halo_indices] * hubble_h / scale_factor
-    forest_halos["Posy"][current_offset:current_offset+NHalos_thissnap] = f_in["Yc"][halo_indices] * hubble_h / scale_factor
-    forest_halos["Posz"][current_offset:current_offset+NHalos_thissnap] = f_in["Zc"][halo_indices] * hubble_h / scale_factor
+    print("Got Posx")
 
+    forest_halos["Posy"][current_offset:current_offset+NHalos_thissnap] = f_in["Yc"][halo_indices] * hubble_h / scale_factor
+    print("Got Posy")
+    forest_halos["Posz"][current_offset:current_offset+NHalos_thissnap] = f_in["Zc"][halo_indices] * hubble_h / scale_factor
+    print("Got Posz")
     # Velocities are in Physical Units #
     forest_halos["Velx"][current_offset:current_offset+NHalos_thissnap] = f_in["VXc"][halo_indices]
+    print("Got Velx")
+
     forest_halos["Vely"][current_offset:current_offset+NHalos_thissnap] = f_in["VYc"][halo_indices]
+    print("Got Vely")
     forest_halos["Velz"][current_offset:current_offset+NHalos_thissnap] = f_in["VZc"][halo_indices]
+
+    print("Got Velz")
+
     forest_halos["VelDisp"][current_offset:current_offset+NHalos_thissnap] = f_in["sigV"][halo_indices]
+
+    print("Got VelDisp")
     forest_halos["Vmax"][current_offset:current_offset+NHalos_thissnap] = f_in["Vmax"][halo_indices]
+    print("Got Vmax")
 
     # The 'spin' parameter in LHalo Tree is the Angular Momentum divided by the
     # total mass.
     M_tot = f_in["Mass_tot"][halo_indices]
+    print("Mass_tot")
 
     forest_halos["Spinx"][current_offset:current_offset+NHalos_thissnap] = \
     f_in["Lx"][halo_indices] * hubble_h * hubble_h / M_tot
@@ -874,6 +908,8 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     f_in["Lz"][halo_indices] * hubble_h * hubble_h / M_tot
 
     forest_halos["MostBoundID"][current_offset:current_offset+NHalos_thissnap] = f_in["oldIDs"][halo_indices]
+    print("Got MostBoundID")
+
     forest_halos["SnapNum"][current_offset:current_offset+NHalos_thissnap] = snap_num
     forest_halos["Filenr"][current_offset:current_offset+NHalos_thissnap] = filenr
 
@@ -975,7 +1011,8 @@ def get_hubble_h(f_in):
         The value of Hubble little h for the given cosmology.
     """
 
-    hubble_h = f_in["Header"]["Cosmology"].attrs["h_val"]
+    #hubble_h = f_in["Header"]["Cosmology"].attrs["h_val"]
+    hubble_h = 0.6751
 
     return hubble_h
 
