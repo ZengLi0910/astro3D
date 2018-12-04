@@ -3,12 +3,14 @@ Authors: Jacob Seiler, Manodeep Sinha
 """
 #!/usr/bin:env python
 from __future__ import print_function
-from astro3D.genesis.utils import common as cmn
 
+import time
 import numpy as np
 import h5py
 from tqdm import tqdm
-import time
+
+from astro3D.genesis.utils import common as cmn
+
 
 __all__ = ("forest_sorter", )
 
@@ -67,7 +69,7 @@ def get_sort_indices(file_in, snap_key, sort_fields, sort_direction):
         if key is None or "NONE" in key.upper():
             continue
         if direction == -1:
-            sort_keys.append(-np.array(file_in[snap_key][key]))
+            sort_keys.append(-1.0*np.array(file_in[snap_key][key]))
         else:
             sort_keys.append(np.array(file_in[snap_key][key]))
 
@@ -148,10 +150,11 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         print("Generating the dictionary to map the oldIDs to the newIDs.")
 
         start_time = time.time()
-        
+
         for snap_key in tqdm(Snap_Keys):
             # We only want to go through snapshots that contain halos.
-            if len(f_in[snap_key][haloID_field]) == 0:
+            # PEP8 Note: An empty sequence is evaluated to false.
+            if not f_in[snap_key][haloID_field] == 0:
                 continue
 
             # Need to get the indices that sort the data according to the
@@ -199,7 +202,7 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         else:
             ID_maps[0] = dict(zip(oldID_maps_zero_keys + [-1],
                                   oldID_maps_zero_values + [-1]))
- 
+
         end_time = time.time()
         print("Creation of dictionary map took {0:3f} seconds"
               .format(end_time - start_time))
@@ -237,7 +240,7 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
                 # except to catch this.
                 try:
                     NHalos = len(f_in[key][haloID_field])
-                    if (NHalos == 0):
+                    if NHalos == 0:
                         continue
                 except KeyError:
                     continue
@@ -251,16 +254,16 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
 
                     newID = np.empty(len(oldID))
 
-                    for count, (snap, ID) in enumerate(zip(snapnum, oldID)):    
+                    for count, (snap, ID) in enumerate(zip(snapnum, oldID)):
                         try:
                             newID[count] = ID_maps[snap][ID]
                         except KeyError:
                             print("Encountered a KeyError when mapping the oldID "
                                   "to the newID.")
                             print("Field {0} \tSnapnum {1}\tOldID "
-                                  "{2}\tID_maps[snap] {2}".format(field, snapnum,
+                                  "{2}\tID_maps[snap] {3}".format(field, snapnum,
                                                                   ID,
-                                                                  ID_maps[snap])) 
+                                                                  ID_maps[snap]))
                             raise KeyError
 
                     to_write = np.array(newID)  # Remember what we need to write.
