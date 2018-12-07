@@ -314,7 +314,7 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
 
 def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
                                   forestID_field="ForestID", is_mpi=0,
-                                  debug=0):
+                                  debug=0, forests_to_process=None):
     """
     Determines the number of halos in each forest at each snapshot.
 
@@ -352,6 +352,10 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
     debug : Integer
         Flag to denote whether extra debugging information should be printed to
         ``stdout``.
+
+    forests_to_process : List of integers
+        If not ``None``, then only the specified forests will be used.
+        Otherwise all forests are used.
  
     Returns
     ----------
@@ -379,6 +383,10 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
     print("Generating the dictionary for the number of halos in each forest "
           "at each snapshot.")
 
+    if forests_to_process is not None:
+        print("Doing this for a total of {0} "
+              "forests.".format(len(forests_to_process)))
+
     NHalos_forest_per_snap = {}
     NHalos_forest_per_snap_offset = {}
 
@@ -390,7 +398,7 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
         snap_key_loop = enumerate(tqdm(Snap_Keys))
 
     for count, snap_key in snap_key_loop: 
-        if len(f_in[snap_key][haloID_field]) == 0:  # Skip empty snapshots.
+        if not f_in[snap_key][haloID_field]:  # Skip empty snapshots.
             continue
 
         halos_counted = 0
@@ -402,27 +410,43 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
         if debug:
             print("{0}\thalo_forestIDs {1}".format(snap_key, halo_forestids))
 
-        forestIDs, halos_in_forest = np.unique(halo_forestids,
-                                               return_counts=True)
+        # If we've been given a specific set of forests to use, count how many
+        # halos there are at this snapshot for those forests. Otherwise, count
+        # for all forests.
+        if forests_to_process is not None:
+            forestIDs = forests_to_process
+
+            # TODO: This is quite sloppy. Probably a more elegant way...
+            NHalos_forest_snap = []
+            for forest_id in forestIDs:
+                halos_forest_snap = np.where(halo_forestids == forest_id)[0]
+                NHalos_forest_snap.append(len(halos_forest_snap))
+
+        else:
+            forestIDs, NHalos_forest_snap = np.unique(halo_forestids,
+                                                      return_counts=True)
+
 
         if debug:
-            print("{0}\tforestIDs {1}\thalos_in_forest {2}".format(snap_key,
-                                                                   forestIDs,
-                                                                   halos_in_forest))
+            print("{0}\tforestIDs {1}\tNHalos_forest {2}".format(snap_key,
+                                                                 forestIDs,
+                                                                 NHalos_forest_snap))
 
+        # Now go through each forest and add its halos to the dictionary.
+        # Necessary to do it in a for loop due to dictionary restrictions.
         for forest_num, forest_id in enumerate(forestIDs):
-            this_snap_NHalos = halos_in_forest[forest_num]
+            NHalos = NHalos_forest_snap[forest_num]
 
             # The first time a forest appears it won't have a corresponding key
             # in the nested dictionary so create it if it's the case.
             try:
-                NHalos_forest_per_snap[forest_id][snap_key] = this_snap_NHalos
-                NHalos_forest_per_snapoffset[forest_id][snap_key] = halos_counted
+                NHalos_forest_per_snap[forest_id][snap_key] = NHalos 
+                NHalos_forest_per_snap_offset[forest_id][snap_key] = halos_counted
             except KeyError:
-                NHalos_forest_per_snap[forest_id] = {snap_key: this_snap_NHalos}
+                NHalos_forest_per_snap[forest_id] = {snap_key: NHalos}
                 NHalos_forest_per_snap_offset[forest_id] = {snap_key: halos_counted}
 
-            halos_counted += this_snap_NHalos
+            halos_counted += NHalos
 
         if debug:
             print("{0}\tNHalos_forest {1}".format(snap_key,

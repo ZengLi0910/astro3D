@@ -202,7 +202,7 @@ def fix_flybys(forest_halos, NHalos_root):
     return forest_halos, global_true_fof_idx, global_flyby_ind
 
 
-def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos):
+def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
     """
     Fixes the ``NextHaloInFOFgroup`` field for a single forest at a single
     snapshot.
@@ -219,14 +219,16 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos):
         The halos within a single forest.
 
     fof_groups : List of integers
-        The FoF IDs for the halos being updated.  Necessary as we pass the
-        entire forest.
+        The ID of the host halo for each FoF group.
 
     offset : Integer
         The (global) offset for the halos within the snapshot we're updating.
 
     NHalos : Integer
         The number of halos being updated.
+
+    forestID : Integer
+        The forest ID for the forest we're updating.
 
     Returns
     ----------
@@ -262,8 +264,12 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos):
         if not np.allclose(halos_in_fof_global_inds, nexthalo-1):
             print("When attempting to fix the `NextHaloInFOFgroup` field we "
                   "encountered substrucure that was not stored contiguously.")
-            print("For FoF ID {0}, the halos within this FoF group were "
+            print("That is, the `hostHaloID` values were not stored "
+                  "contiguously.") 
+            print("For hostHaloID {0},  the halos within this FoF group were "
                   "{1}".format(fof, halos_in_fof_global_inds))
+
+            print("This was for ForestID {0}".format(forestID, SnapNum))
             raise RuntimeError
 
         # Check passed so we can update the halos.
@@ -372,11 +378,8 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         else:
             is_mpi = False
 
-        NHalos_forest, NHalos_forest_offset = cmn.get_halos_per_forest(f_in,
-                                                                       Snap_Keys,
-                                                                       haloID_field,
-                                                                       forestID_field,
-                                                                       is_mpi)
+        NHalos_forest = cmn.get_halos_per_forest(f_in, Snap_Keys, haloID_field,
+                                                 forestID_field, is_mpi, debug)
 
         # Find the max value of the object where the compared
         # values are returned via the "key". In this case,
@@ -402,6 +405,13 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         else:
             forests_to_process = total_forests_to_process
 
+        # Now that each processor knows what Forests they're processing,
+        # they need to know the number of halos per snapshot per forest.
+        NHalos_forest_snap, NHalos_forest_snap_offset = \
+            cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field,
+                                              forestID_field, is_mpi, debug,
+                                              forests_to_process)
+
         filenr = rank
 
         # We first want to determine the number of forests, total number of
@@ -411,8 +421,8 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         global_halos_per_forest = []
 
         for forestID in forests_to_process:
-            # NHalos_forest is a nested dictionary accessed by each forestID.
-            halos_per_forest = sum(NHalos_forest[forestID].values())
+            # NHalos_forest_snap is a nested dictionary accessed by each forestID.
+            halos_per_forest = sum(NHalos_forest_snap[forestID].values())
             global_halos_per_forest.append(halos_per_forest)
             totNHalos += halos_per_forest
 
@@ -445,15 +455,15 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                 print("Rank {0} processed {1} Root "
                       "Halos".format(rank, sum_NHalos_root))
 
-            NHalos = sum(NHalos_forest[forestID].values())
-            NHalos_root = NHalos_forest[forestID][last_snap_key]
+            NHalos = sum(NHalos_forest_snap[forestID].values())
+            NHalos_root = NHalos_forest_snap[forestID][last_snap_key]
             sum_NHalos_root += NHalos_root
 
             forest_halos = np.zeros(NHalos, dtype=LHalo_Desc)
             forest_halos = populate_forest(f_in, forest_halos, Snap_Keys,
                                            Snap_Nums, forestID,
-                                           NHalos_forest,
-                                           NHalos_forest_offset,
+                                           NHalos_forest_snap,
+                                           NHalos_forest_snap_offset,
                                            filenr, hubble_h)
 
             forest_NHalos_root = np.where(forest_halos["SnapNum"] ==
@@ -584,10 +594,9 @@ def determine_forests(NHalos_forest, all_forests):
     Parameters
     ----------
 
-    NHalos_forest : Nested Dictionary
-        Nested dictionary that contains the number of halos for each Forest at
-        each snapshot.  Outer-key is the ForestID and inner-key is the snapshot
-        key.
+    NHalos_forest : Dictionary
+        Dictionary that contains the number of halos for each Forest. Key is
+        the ForestID.
 
     all_forests : List of integers
         List of Forest IDs to be processed across all files.
@@ -603,9 +612,7 @@ def determine_forests(NHalos_forest, all_forests):
     if rank == 0:
 
         # First need to know how many halos we have across all forests.
-        NHalos_total = 0
-        for count, forestID in enumerate(all_forests):
-            NHalos_total += sum(NHalos_forest[forestID].values())
+        NHalos_total = sum(NHalos_forest.values()) 
 
         NHalo_target = NHalos_total / size  # Number of halos for each proc.
 
@@ -619,7 +626,7 @@ def determine_forests(NHalos_forest, all_forests):
 
         for count, forestID in enumerate(all_forests):
             # Loop over the forests until we have enough halos.
-            halos_assigned += sum(NHalos_forest[forestID].values())
+            halos_assigned += sum(NHalos_forest[forestID])
             forest_assignment.append(forestID)
 
             if halos_assigned > NHalo_target:
@@ -706,7 +713,8 @@ def write_header(fname_out, Nforests, totNHalos, halos_per_forest,
 
 
 def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
-                    NHalos_forest, NHalos_forest_offset, filenr, hubble_h):
+                    NHalos_forest_snap, NHalos_forest_snap_offset, filenr,
+                    hubble_h):
     """
     Takes an empty ``forest_halos`` structure and fills it with the halos
     corresponding to the passed ``forestID``.
@@ -733,12 +741,12 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
     forestID : Integer
         The forest ID we're populating the halos for.
 
-    NHalos_forest : Nested Dictionary
+    NHalos_forest_snap : Nested Dictionary
         Nested dictionary that contains the number of halos for each Forest at
         each snapshot.  Outer-key is ``forestID`` and inner-key is the snapshot
         key.
 
-    NHalos_forest_offset : Nested Dictionary
+    NHalos_forest_snap_offset : Nested Dictionary
         Nested dictionary that contains the offset for each Forest at each
         snapshot. Outer-key is ``forestID`` and inner-key is the snapshot key.
 
@@ -758,15 +766,14 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
     # Start at the root redshift and work our way up the tree.
     for snap_key in tqdm(Snap_Keys[::-1]):
 
-        print(snap_key)
         # Get the number, index offset and the corresponding indices for halos
         # at this snapshot.
         try:
-            NHalos_forest_snap = NHalos_forest[forestID][snap_key]
+            NHalos_forest_snap = NHalos_forest_snap[forestID][snap_key]
         except KeyError:
             continue
 
-        halos_forest_offset = NHalos_forest_offset[forestID][snap_key]
+        halos_forest_offset = NHalos_forest_snap_offset[forestID][snap_key]
         halos_forest_inds = list(np.arange(halos_forest_offset,
                                            halos_forest_offset + NHalos_forest_snap))
 
@@ -777,13 +784,14 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
                                                            halos_forest_inds,
                                                            halos_offset,
                                                            Snap_Nums[snap_key],
-                                                           filenr, hubble_h)
+                                                           filenr, hubble_h,
+                                                           forestID)
 
     return forest_halos
 
 
 def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
-                          snap_num, filenr, hubble_h):
+                          snap_num, filenr, hubble_h, forestID):
     """
     Grabs all the properties from the input HDF5 file for the current snapshot.
 
@@ -815,6 +823,9 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
 
     filenr : Integer
         The output file number this tree will be written to.
+
+    forestID : Integer
+        The forest ID for the forest we're updating.
 
     Returns
     ----------
@@ -850,7 +861,7 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     all_hosthalo_inds = f_in["hostHaloID"][halo_indices]
     fof_groups = np.unique(all_hosthalo_inds)
     forest_halos = fix_nextsubhalo(forest_halos, fof_groups, current_offset,
-                                   NHalos_thissnap)
+                                   NHalos_thissnap, forestID)
 
     print("Fixed NextHaloInFOFgroup")
 

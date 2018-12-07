@@ -154,7 +154,7 @@ def forest_sorter(fname_in, fname_out, haloID_field="ID",
         for snap_key in tqdm(Snap_Keys):
             # We only want to go through snapshots that contain halos.
             # PEP8 Note: An empty sequence is evaluated to false.
-            if not f_in[snap_key][haloID_field] == 0:
+            if not f_in[snap_key][haloID_field]:
                 continue
 
             # Need to get the indices that sort the data according to the
