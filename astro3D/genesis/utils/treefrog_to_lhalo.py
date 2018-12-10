@@ -286,7 +286,7 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
 def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                       forestID_field="ForestID", Nforests=None,
                       write_binary_flag=1, fname_alist=None, dry_run=1,
-                      debug=0):
+                      total_files=size, files_processed=0, debug=0):
     """
     Takes the Treefrog trees that have had their IDs corrected to be in LHalo
     format and saves them in LHalo binary format.
@@ -328,6 +328,14 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
     fname_alist : String, optional
         If not ``None``, creates a file with path ``fname_alist`` that contains
         the scale factors at each snapshot (from lowest to highest). 
+
+    total_files : Integer, optional
+        The total number of files we splitting the trees across. Can be
+        greater than then number of processors.
+
+    files_processed : Integer, optional
+         The number of files that have been processed by previous executions of
+        the code.  Used to set the forest assignment offset and file number.
 
     debug : Integer
         Flag to denote whether extra debugging information should be printed to
@@ -400,8 +408,9 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         # processor is handling.
         if size > 1:
             forests_to_process = determine_forests(NHalos_forest,
-                                                   total_forests_to_process)
-
+                                                   total_forests_to_process,
+                                                   total_files=total_files,
+                                                   files_processed=files_processed)
         else:
             forests_to_process = total_forests_to_process
 
@@ -412,7 +421,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                                               forestID_field, is_mpi, debug,
                                               forests_to_process)
 
-        filenr = rank
+        filenr = rank + files_processed
 
         # We first want to determine the number of forests, total number of
         # halos in these forests, and number of halos per forest for each
@@ -582,14 +591,21 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
 
 
-def determine_forests(NHalos_forest, all_forests):
+def determine_forests(NHalos_forest, all_forests, total_files=size,
+                      files_processed=0):
     """
     Load balances the number of halos across processors.
 
+    We split the halos into ``total_files`` number of files. This can be
+    greater than the number of processors currently running.  If it is, we
+    still split the assignment to ``total_files`` but only process
+    ``num_processors`` this execution. Only following executions, we use
+    ``execution_number`` to properly offset the assignments.
+
     .. note::
         Since we do not split trees across processors, this function will
-        result in processors having an unequal number of trees (but similar
-        total number of halos) across processors.
+        result in processors having an unequal number of trees but similar
+        total number of halos across processors.
 
     Parameters
     ----------
@@ -601,6 +617,14 @@ def determine_forests(NHalos_forest, all_forests):
     all_forests : List of integers
         List of Forest IDs to be processed across all files.
 
+    total_files : Integer, optional
+        The total number of files we splitting the trees across. Can be
+        greater than then number of processors.
+
+    files_processed : Integer, optional
+         The number of files that have been processed by previous executions of
+        the code.  Used to set the forest assignment offset.
+
     Returns
     ----------
 
@@ -608,47 +632,41 @@ def determine_forests(NHalos_forest, all_forests):
         Rank-unique list of forest IDs to be processed by this rank.
     """
 
-    # We perform the operation on the root process and send the results out.
-    if rank == 0:
+    # First need to know how many halos we have across all forests.
+    NHalos_total = sum(NHalos_forest.values()) 
+    NHalo_target = np.ceil(NHalos_total / size)  # Number of halos for each proc.
 
-        # First need to know how many halos we have across all forests.
-        NHalos_total = sum(NHalos_forest.values()) 
-
-        NHalo_target = NHalos_total / size  # Number of halos for each proc.
-
-        # Create a nested list to hold the forest assignment for each processor.
-        forest_assignment = []
-
-        # Start the assignment at the last rank and move down.  That way rank 0
-        # will be last and the other processors can start their calculation.
-        rank_count = size - 1
-        halos_assigned = 0
-
-        for count, forestID in enumerate(all_forests):
-            # Loop over the forests until we have enough halos.
-            halos_assigned += sum(NHalos_forest[forestID])
-            forest_assignment.append(forestID)
-
-            if halos_assigned > NHalo_target:
-                print("Rank {0} has been assigned {1} forests with {2} total "
-                      "halos.".format(rank_count,
-                                      len(forest_assignment),
-                                      halos_assigned))
-
-                # Pass the assigned forest to the correct processor.
-                comm.send(forest_assignment, dest=rank_count, tag=1)
-
-                # Then reset everything.
-                rank_count -= 1
-                halos_assigned = 0
-                forest_assignment = []
-
-        my_forest_assignment = forest_assignment
+    # We may be only using a subset of the total forests, so get these from the
+    # dictionary.  If we're using all the forests, can do this quickly.
+    if len(all_forest) == len(NHalos_forest):
+        NHalos_forest_interest = np.array(list(NHalos_forest))
     else:
-        # All other ranks wait to receive their assignments.
-        my_forest_assignment = comm.recv(source=0, tag=1)
+        NHalos_forest_interest = []
+        for forestID in all_forests:
+            NHalos_forest_interest.append(NHalos_forest[forestID])
 
-    return my_forest_assignment
+    # Now if we find the cumulative sum, we can partition the forests into
+    # buckets with size `NHalo_target`.
+    NHalos_vals = np.array(NHalos_forest_interest) 
+    cumulative = np.cumsum(NHalos_vals)
+    assignment_idx = []
+    assignment_idx.append(0)
+
+    # The number of buckets will be `total_files`. 
+    for file_num in range(total_files):
+
+        # How far into the values do we need to stride to get enough halos?
+        file_idx = np.searchsorted(NHalos_vals, NHalo_target*(file_num+1))
+        assignment_idx.append(file_idx)
+
+    # Assign the trees depending on the processor rank and how many files we've
+    # processed so far.
+    this_rank_idx = rank+files_processed
+    forest_inds_low = assignment_idx[this_rank_idx] 
+    forest_inds_high = assignment_idx[this_rank_idx+1] 
+    forest_assignment = all_forests[forest_inds_low:forest_inds_high]
+
+    return forest_assignment
 
 
 def write_header(fname_out, Nforests, totNHalos, halos_per_forest,
