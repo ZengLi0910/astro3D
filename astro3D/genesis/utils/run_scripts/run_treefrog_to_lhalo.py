@@ -22,6 +22,8 @@ if __name__ == '__main__':
     write_binary_flag = 1 
     fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/alist"
     dry_run = 0
+    total_files = 4
+    files_processed = 0
     debug = 0
 
     frog_to_l.treefrog_to_lhalo(fname_in, fname_out,
