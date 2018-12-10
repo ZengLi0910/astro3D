@@ -126,3 +126,6 @@ data/
 
 # Profiling
 *.lprof
+
+# Slurm outputs
+*.out

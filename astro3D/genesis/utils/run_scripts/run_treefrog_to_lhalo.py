@@ -18,7 +18,7 @@ if __name__ == '__main__':
     fname_out = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/converted"
     haloID_field = "ID"
     forestID_field = "ForestID"
-    Nforests = 10 
+    Nforests = 20 
     write_binary_flag = 1 
     fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/alist"
     dry_run = 0

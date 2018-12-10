@@ -306,7 +306,7 @@ def get_halos_per_forest(f_in, Snap_Keys, haloID_field="ID",
             try:
                 NHalos_forest[forest_id] += this_snap_NHalos
             except KeyError:
-                NHalos_forest[forest_id] = 0 
+                NHalos_forest[forest_id] = this_snap_NHalos 
 
 
     return NHalos_forest

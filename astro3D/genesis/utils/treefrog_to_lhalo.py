@@ -767,15 +767,19 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
     for snap_key in tqdm(Snap_Keys[::-1]):
 
         # Get the number, index offset and the corresponding indices for halos
-        # at this snapshot.
+        # at this snapshot.        
         try:
-            NHalos_forest_snap = NHalos_forest_snap[forestID][snap_key]
+            NHalos = NHalos_forest_snap[forestID][snap_key]
         except KeyError:
+            continue
+
+        # Just another catch for empty snapshots.
+        if NHalos == 0:
             continue
 
         halos_forest_offset = NHalos_forest_snap_offset[forestID][snap_key]
         halos_forest_inds = list(np.arange(halos_forest_offset,
-                                           halos_forest_offset + NHalos_forest_snap))
+                                           halos_forest_offset + NHalos))
 
         print("Filling {0} Halos".format(len(halos_forest_inds)))
         # Then go to the HDF5 file and grab all the required properties.

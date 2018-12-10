@@ -1,9 +1,11 @@
-from astro3D.genesis.utils import common as cmn
-
+import time
 import numpy as np
 import h5py
-import time
+
 from tqdm import tqdm
+
+from astro3D.genesis.utils import common as cmn
+
 
 __all__ = ("convert_indices", )
 
@@ -77,7 +79,7 @@ def convert_indices(fname_in, fname_out,
 
         Snap_Keys, Snap_Nums = cmn.get_snapkeys_and_nums(f_in.keys())
 
-        NHalos_forest_per_snap, NHalos_forest_per_snapoffset = \
+        NHalos_forest_per_snap, NHalos_forest_per_snap_offset = \
             cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field, forestID_field)
 
         print("Now creating a dictionary that maps the old, global indices to "
@@ -89,7 +91,7 @@ def convert_indices(fname_in, fname_out,
         # represents the number of Halos in this forest that have already been
         # processed.
         NHalos_processed = {}
-        for forest in NHalos_forest_per_snap.keys():
+        for forest in NHalos_forest_per_snap:
             NHalos_processed[forest] = 0
 
         ID_maps = {}
@@ -101,7 +103,7 @@ def convert_indices(fname_in, fname_out,
         for snap_key in tqdm(Snap_Keys[::-1]):
             try:
                 NHalos = len(f_in[snap_key][haloID_field])
-                if (NHalos == 0):
+                if NHalos == 0:
                     continue
             except KeyError:
                 continue
@@ -178,7 +180,7 @@ def convert_indices(fname_in, fname_out,
         for snap_key in tqdm(Snap_Keys):
             try:
                 NHalos = len(f_in[snap_key][haloID_field])
-                if (NHalos == 0):
+                if NHalos == 0:
                     continue
             except KeyError:
                 continue
