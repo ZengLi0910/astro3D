@@ -21,7 +21,7 @@ if __name__ == '__main__':
     Nforests = 20 
     write_binary_flag = 1 
     fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/alist"
-    dry_run = 0
+    dry_run = 1
     total_files = 4
     files_processed = 0
     debug = 0
@@ -29,4 +29,6 @@ if __name__ == '__main__':
     frog_to_l.treefrog_to_lhalo(fname_in, fname_out,
                                 haloID_field, forestID_field, Nforests,
                                 write_binary_flag, fname_alist=fname_alist,
-                                dry_run=dry_run, debug=debug)
+                                dry_run=dry_run, debug=debug,
+                                total_files=total_files,
+                                files_processed=files_processed)

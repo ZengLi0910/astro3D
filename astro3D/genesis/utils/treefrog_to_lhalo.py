@@ -13,15 +13,15 @@ from tqdm import trange
 
 import time
 
-#try:
-#    from mpi4py import MPI
-#except ImportError:
-rank = 0
-size = 1
-#else:
-#    comm = MPI.COMM_WORLD
-#    rank = comm.Get_rank()
-#    size = comm.Get_size()
+try:
+    from mpi4py import MPI
+except ImportError:
+    rank = 0
+    size = 1
+else:
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
 __all__ = ("treefrog_to_lhalo", )
 
@@ -285,7 +285,7 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
 
 def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                       forestID_field="ForestID", Nforests=None,
-                      write_binary_flag=1, fname_alist=None, dry_run=1,
+                      write_binary_flag=1, fname_alist=None, dry_run=0,
                       total_files=size, files_processed=0, debug=0):
     """
     Takes the Treefrog trees that have had their IDs corrected to be in LHalo
@@ -414,6 +414,10 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         else:
             forests_to_process = total_forests_to_process
 
+        print("I am rank {0} and I am processing Forests {1}".format(rank,
+                                                                     forests_to_process))
+
+        exit()
         # Now that each processor knows what Forests they're processing,
         # they need to know the number of halos per snapshot per forest.
         NHalos_forest_snap, NHalos_forest_snap_offset = \
@@ -632,38 +636,47 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
         Rank-unique list of forest IDs to be processed by this rank.
     """
 
-    # First need to know how many halos we have across all forests.
-    NHalos_total = sum(NHalos_forest.values()) 
-    NHalo_target = np.ceil(NHalos_total / size)  # Number of halos for each proc.
-
     # We may be only using a subset of the total forests, so get these from the
     # dictionary.  If we're using all the forests, can do this quickly.
-    if len(all_forest) == len(NHalos_forest):
+    if len(all_forests) == len(NHalos_forest):
         NHalos_forest_interest = np.array(list(NHalos_forest))
     else:
         NHalos_forest_interest = []
         for forestID in all_forests:
             NHalos_forest_interest.append(NHalos_forest[forestID])
 
+    # Cast to an array for use later.
+    NHalos_vals = np.array(NHalos_forest_interest) 
+
+    # Want to split the total number of halos across files.
+    NHalos_total = sum(NHalos_vals)
+    NHalo_target = np.ceil(NHalos_total / total_files)
+ 
     # Now if we find the cumulative sum, we can partition the forests into
     # buckets with size `NHalo_target`.
-    NHalos_vals = np.array(NHalos_forest_interest) 
     cumulative = np.cumsum(NHalos_vals)
     assignment_idx = []
-    assignment_idx.append(0)
+
+    print("NHalos {0}\tTarget {1}".format(NHalos_total, NHalo_target))
+    print("Cumu {0}".format(cumulative))
 
     # The number of buckets will be `total_files`. 
     for file_num in range(total_files):
 
         # How far into the values do we need to stride to get enough halos?
-        file_idx = np.searchsorted(NHalos_vals, NHalo_target*(file_num+1))
+        # ``np.searchsorted`` takes a sorted array and a value and returns the
+        # index where the value would be placed to ensure the array remains 
+        # sorted.
+        file_idx = np.searchsorted(cumulative, NHalo_target*(file_num+1))
         assignment_idx.append(file_idx)
 
+    print("Assignment idx {0}".format(assignment_idx))
     # Assign the trees depending on the processor rank and how many files we've
     # processed so far.
     this_rank_idx = rank+files_processed
     forest_inds_low = assignment_idx[this_rank_idx] 
-    forest_inds_high = assignment_idx[this_rank_idx+1] 
+    forest_inds_high = assignment_idx[this_rank_idx+1]
+    print("inds_low {0}\tinds_high {1}\tthis_rank_idx {2}".format(forest_inds_low, forest_inds_high, this_rank_idx)) 
     forest_assignment = all_forests[forest_inds_low:forest_inds_high]
 
     return forest_assignment
