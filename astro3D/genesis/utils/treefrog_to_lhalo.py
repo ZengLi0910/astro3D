@@ -202,7 +202,8 @@ def fix_flybys(forest_halos, NHalos_root):
     return forest_halos, global_true_fof_idx, global_flyby_ind
 
 
-def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
+def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID,
+                    snap_num):
     """
     Fixes the ``NextHaloInFOFgroup`` field for a single forest at a single
     snapshot.
@@ -229,6 +230,9 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
 
     forestID : Integer
         The forest ID for the forest we're updating.
+
+    snap_num : Integer
+        The snapshot we're altering.
 
     Returns
     ----------
@@ -262,14 +266,16 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID):
         # contiguously.  Ensure this is the case and that the indices of the
         # halos within the FoF group are simply an arange.
         if not np.allclose(halos_in_fof_global_inds, nexthalo-1):
-            print("When attempting to fix the `NextHaloInFOFgroup` field we "
-                  "encountered substrucure that was not stored contiguously.")
+            print("When attempting to fix the `NextHaloInFOFgroup` field for "
+                  "ForestID {0} we encountered substrucure that was not stored"
+                  " contiguously.".format(forestID))
             print("That is, the `hostHaloID` values were not stored "
                   "contiguously.") 
             print("For hostHaloID {0},  the halos within this FoF group were "
                   "{1}".format(fof, halos_in_fof_global_inds))
+            print("The value of `nexthalo` is {0}. This should be equal to the"
+                  " above list + 1".format(nexthalo))
 
-            print("This was for ForestID {0}".format(forestID, SnapNum))
             raise RuntimeError
 
         # Check passed so we can update the halos.
@@ -814,7 +820,7 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
                       # proper place.
 
     # Start at the root redshift and work our way up the tree.
-    for snap_key in tqdm(Snap_Keys[::-1]):
+    for snap_key in Snap_Keys[::-1]:
 
         # Get the number, index offset and the corresponding indices for halos
         # at this snapshot.        
@@ -893,21 +899,15 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     scale_factor = f_in.attrs['scalefactor']
 
     forest_halos["Descendant"][current_offset:current_offset+NHalos_thissnap] = f_in["Head"][halo_indices]
-    print("Got Desc")
     forest_halos["FirstProgenitor"][current_offset:current_offset+NHalos_thissnap] = f_in["Tail"][halo_indices]
-
-    print("Got FirstProg")
 
     # Initialize `NextProgenitor` with -1 and then fix it later with function
     # `fix_nextprog()`.
     forest_halos["NextProgenitor"][current_offset:current_offset+NHalos_thissnap] = -1
-    print("Got NextProg")
 
     # `FirstHaloInFOFgroup` is -1 for main FoF halos.  However in the LHaloTree
     # structure, this should point to itself. 
     forest_halos["FirstHaloInFOFgroup"][current_offset:current_offset+NHalos_thissnap] = f_in["hostHaloID"][halo_indices]
-    
-    print("Got FirstHaloInFOFgroup")
 
     # First find out what the FoF groups are.  Then go through the FoF groups
     # and update the `NextHaloInFOFgroup` pointer.
@@ -915,53 +915,30 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     all_hosthalo_inds = f_in["hostHaloID"][halo_indices]
     fof_groups = np.unique(all_hosthalo_inds)
     forest_halos = fix_nextsubhalo(forest_halos, fof_groups, current_offset,
-                                   NHalos_thissnap, forestID)
-
-    print("Fixed NextHaloInFOFgroup")
+                                   NHalos_thissnap, forestID, snap_num)
 
     # All merger pointers are now done, read in the halo properties.
     forest_halos["Len"][current_offset:current_offset+NHalos_thissnap] = f_in["npart"][halo_indices]
-    print("Got Len")
-
     forest_halos["M_Mean200"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200mean"][halo_indices] * hubble_h
-
-    print("Got M_Mean200")
-
     forest_halos["Mvir"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200crit"][halo_indices] * hubble_h
-
-    print("Got Mvir")
-
     forest_halos["M_TopHat"][current_offset:current_offset+NHalos_thissnap] = f_in["Mass_200crit"][halo_indices] * hubble_h
 
-    print("Got M_TopHat")
     # Positions are in Co-moving Units #
     forest_halos["Posx"][current_offset:current_offset+NHalos_thissnap] = f_in["Xc"][halo_indices] * hubble_h / scale_factor
-    print("Got Posx")
-
     forest_halos["Posy"][current_offset:current_offset+NHalos_thissnap] = f_in["Yc"][halo_indices] * hubble_h / scale_factor
-    print("Got Posy")
     forest_halos["Posz"][current_offset:current_offset+NHalos_thissnap] = f_in["Zc"][halo_indices] * hubble_h / scale_factor
-    print("Got Posz")
+
     # Velocities are in Physical Units #
     forest_halos["Velx"][current_offset:current_offset+NHalos_thissnap] = f_in["VXc"][halo_indices]
-    print("Got Velx")
-
     forest_halos["Vely"][current_offset:current_offset+NHalos_thissnap] = f_in["VYc"][halo_indices]
-    print("Got Vely")
     forest_halos["Velz"][current_offset:current_offset+NHalos_thissnap] = f_in["VZc"][halo_indices]
 
-    print("Got Velz")
-
     forest_halos["VelDisp"][current_offset:current_offset+NHalos_thissnap] = f_in["sigV"][halo_indices]
-
-    print("Got VelDisp")
     forest_halos["Vmax"][current_offset:current_offset+NHalos_thissnap] = f_in["Vmax"][halo_indices]
-    print("Got Vmax")
 
     # The 'spin' parameter in LHalo Tree is the Angular Momentum divided by the
     # total mass.
     M_tot = f_in["Mass_tot"][halo_indices]
-    print("Mass_tot")
 
     forest_halos["Spinx"][current_offset:current_offset+NHalos_thissnap] = \
     f_in["Lx"][halo_indices] * hubble_h * hubble_h / M_tot
@@ -973,13 +950,11 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     f_in["Lz"][halo_indices] * hubble_h * hubble_h / M_tot
 
     forest_halos["MostBoundID"][current_offset:current_offset+NHalos_thissnap] = f_in["oldIDs"][halo_indices]
-    print("Got MostBoundID")
-
     forest_halos["SnapNum"][current_offset:current_offset+NHalos_thissnap] = snap_num
     forest_halos["Filenr"][current_offset:current_offset+NHalos_thissnap] = filenr
 
-    forest_halos["SubHaloIndex"][current_offset:current_offset+NHalos_thissnap] = -1 ##
-    forest_halos["SubHalfMass"][current_offset:current_offset+NHalos_thissnap] = -1 ##
+    forest_halos["SubHaloIndex"][current_offset:current_offset+NHalos_thissnap] = -1
+    forest_halos["SubHalfMass"][current_offset:current_offset+NHalos_thissnap] = -1
     current_offset += NHalos_thissnap
 
     return forest_halos, current_offset
