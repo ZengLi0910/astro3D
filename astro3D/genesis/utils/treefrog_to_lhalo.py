@@ -414,10 +414,15 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         else:
             forests_to_process = total_forests_to_process
 
-        print("I am rank {0} and I am processing Forests {1}".format(rank,
-                                                                     forests_to_process))
+        NHalos_rank = 0
+        for forestID in forests_to_process:
+            NHalos_rank += NHalos_forest[forestID] 
+        #print("I am rank {0} and I am processing Forests {1} with a total of "
+        #      "{2} halos".format(rank, forests_to_process, NHalos_rank))
 
-        exit()
+        print("I am rank {0} and I am processing {1} Forests with a total of "
+              "{2} halos".format(rank, len(forests_to_process), NHalos_rank))
+
         # Now that each processor knows what Forests they're processing,
         # they need to know the number of halos per snapshot per forest.
         NHalos_forest_snap, NHalos_forest_snap_offset = \
@@ -638,46 +643,60 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
 
     # We may be only using a subset of the total forests, so get these from the
     # dictionary.  If we're using all the forests, can do this quickly.
+    # We want to get the forestIDs and the number of halos in the forest for
+    # those forests we're interested in. 
     if len(all_forests) == len(NHalos_forest):
-        NHalos_forest_interest = np.array(list(NHalos_forest))
+        NHalos_forest_interest = list(NHalos_forest.values())
+        forestID_forest_interest = list(NHalosS_forest.keys())           
     else:
         NHalos_forest_interest = []
+        forestID_forest_interest = all_forests
         for forestID in all_forests:
             NHalos_forest_interest.append(NHalos_forest[forestID])
 
-    # Cast to an array for use later.
-    NHalos_vals = np.array(NHalos_forest_interest) 
-
     # Want to split the total number of halos across files.
-    NHalos_total = sum(NHalos_vals)
+    NHalos_total = sum(NHalos_forest_interest)
     NHalo_target = np.ceil(NHalos_total / total_files)
- 
-    # Now if we find the cumulative sum, we can partition the forests into
-    # buckets with size `NHalo_target`.
-    cumulative = np.cumsum(NHalos_vals)
+
+    # We want to partition the forests into buckets with number of halos
+    # `NHalo_target`. To do this, we will generate a list with length
+    # `total_files + 1`. This list will contain the index slice for the forests
+    # processed for each file.
     assignment_idx = []
+    assignment_idx.append(0)  # Want to start pulling from index 0.
+    halos_counted = 0
 
     print("NHalos {0}\tTarget {1}".format(NHalos_total, NHalo_target))
-    print("Cumu {0}".format(cumulative))
+    #print("NHalos_forest_interest {0}".format(NHalos_forest_interest))
 
-    # The number of buckets will be `total_files`. 
-    for file_num in range(total_files):
+    # Now go through all of the forests. When we have gathered `NHalo_target`
+    # halos, remember the index.  Note: We do this manually instead of using a
+    # cumulative sum because VERY large forests skew the assignment.
+    for count, (forestID, this_NHalos) in enumerate(zip(forestID_forest_interest,
+                                                        NHalos_forest_interest)):
+        
+        halos_counted += this_NHalos 
+        if halos_counted >= NHalo_target:
+            # Remember to +1 because slicing has an open right domain.
+            # That is, if we want elements 0-8, the slice is [0:9].
+            assignment_idx.append(count+1)
+            halos_counted = 0
 
-        # How far into the values do we need to stride to get enough halos?
-        # ``np.searchsorted`` takes a sorted array and a value and returns the
-        # index where the value would be placed to ensure the array remains 
-        # sorted.
-        file_idx = np.searchsorted(cumulative, NHalo_target*(file_num+1))
-        assignment_idx.append(file_idx)
-
+    # The last slice end will be the final element.
+    assignment_idx.append(count+1)
+ 
     print("Assignment idx {0}".format(assignment_idx))
     # Assign the trees depending on the processor rank and how many files we've
     # processed so far.
     this_rank_idx = rank+files_processed
-    forest_inds_low = assignment_idx[this_rank_idx] 
-    forest_inds_high = assignment_idx[this_rank_idx+1]
-    print("inds_low {0}\tinds_high {1}\tthis_rank_idx {2}".format(forest_inds_low, forest_inds_high, this_rank_idx)) 
-    forest_assignment = all_forests[forest_inds_low:forest_inds_high]
+    forest_idx_low = assignment_idx[this_rank_idx] 
+    forest_idx_high = assignment_idx[this_rank_idx+1]
+
+    print("idx_low {0}\tidx_high {1}\tthis_rank_idx {2}".format(forest_idx_low, forest_idx_high, this_rank_idx))
+
+    # We have the indices required to properly slice up the forests for each
+    # processor. Do it! 
+    forest_assignment = forestID_forest_interest[forest_idx_low:forest_idx_high]
 
     return forest_assignment
 
