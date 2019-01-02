@@ -21,8 +21,8 @@ if __name__ == '__main__':
     Nforests = None 
     write_binary_flag = 1 
     fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/alist"
-    dry_run = 1
-    total_files = 64 
+    dry_run = 0
+    total_files = 128
     files_processed = 0
     debug = 0
 

@@ -97,7 +97,7 @@ def get_LHalo_datastruct():
     return LHalo_Desc, multipledim_names
 
 
-def fix_nextprog(forest_halos):
+def fix_nextprog(forest_halos, forestID, debug=0):
     """
     Walks the descendants of a single forest to generate the `NextProgenitor`
     field.
@@ -108,6 +108,13 @@ def fix_nextprog(forest_halos):
     forest_halos : Numpy structured array with data structure defined by
                   :py:mod:`astro3D.genesis.utils.treefrog_to_lhalo.get_LHalo_datastruct`
         The halos within a single forest.
+
+    forestID : Integer
+        The forest ID for the forest we're updating.
+
+    debug : Integer
+        Flag to denote whether extra debugging information should be printed to
+        ``stdout``.
 
     Returns
     ----------
@@ -123,10 +130,45 @@ def fix_nextprog(forest_halos):
             continue
         curr = forest_halos["FirstProgenitor"][d]
 
+        if debug:
+            print("Descendant {0}\tCurr {1}".format(d, curr))
+
         if curr == ii:
             continue
+
+        try:
+            tmp = forest_halos["NextProgenitor"][curr]
+        except IndexError:
+            print("When attempting to fix the NextProgenitor values for "
+                  "forest {0} on Rank {1}, I ran into an "
+                  "error.".format(forestID, rank))
+            print("However, we only have {0} Halos in this "
+                  "forest.".format(len(forest_halos)))
+        else:
+            pass
+
+
         while forest_halos["NextProgenitor"][curr] != -1:
+
+            if debug:
+                print("Loop: Descendant {0}\tCurr {1}\tNext {2}".format(d, curr,
+                                                                        forest_halos["NextProgenitor"][curr]))
+
+            prev = curr
             curr = forest_halos["NextProgenitor"][curr]
+
+            try:
+                tmp = forest_halos["NextProgenitor"][curr]
+            except IndexError:
+                print("When attempting to fix the NextProgenitor values for "
+                      "forest {0} on Rank {1}, I ran into an "
+                      "error.".format(forestID, rank))
+                print("The NextProgenitor value of Halo {0} was found to be "
+                      "{1}".format(prev, curr))
+                print("However, we only have {0} Halos in this "
+                      "forest.".format(len(forest_halos)))
+            else:
+                pass
 
         assert(forest_halos["NextProgenitor"][curr] == -1)
         forest_halos["NextProgenitor"][curr] = ii
@@ -267,15 +309,18 @@ def fix_nextsubhalo(forest_halos, fof_groups, offset, NHalos, forestID,
         # halos within the FoF group are simply an arange.
         if not np.allclose(halos_in_fof_global_inds, nexthalo-1):
             print("When attempting to fix the `NextHaloInFOFgroup` field for "
-                  "ForestID {0} we encountered substrucure that was not stored"
-                  " contiguously.".format(forestID))
+                  "ForestID {0} at snapshot {1} we encountered substructure that"
+                  " was not stored contiguously.".format(forestID, snap_num))
+            print("The offset value is {0} and NHalos is {1}".format(offset,
+                                                                     NHalos))
             print("That is, the `hostHaloID` values were not stored "
                   "contiguously.") 
-            print("For hostHaloID {0},  the halos within this FoF group were "
+            print("For hostHaloID {0}, the halos within this FoF group were "
                   "{1}".format(fof, halos_in_fof_global_inds))
             print("The value of `nexthalo` is {0}. This should be equal to the"
                   " above list + 1".format(nexthalo))
 
+            print(forest_halos[:][offset:offset+NHalos])
             raise RuntimeError
 
         # Check passed so we can update the halos.
@@ -423,8 +468,6 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         NHalos_rank = 0
         for forestID in forests_to_process:
             NHalos_rank += NHalos_forest[forestID] 
-        #print("I am rank {0} and I am processing Forests {1} with a total of "
-        #      "{2} halos".format(rank, forests_to_process, NHalos_rank))
 
         print("I am rank {0} and I am processing {1} Forests with a total of "
               "{2} halos".format(rank, len(forests_to_process), NHalos_rank))
@@ -434,7 +477,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         NHalos_forest_snap, NHalos_forest_snap_offset = \
             cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field,
                                               forestID_field, is_mpi, debug,
-                                              forests_to_process)
+                                              forests_to_process=forests_to_process)
 
         filenr = rank + files_processed
 
@@ -472,12 +515,12 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
         sum_NHalos_root = 0
         for count, forestID in enumerate(forests_to_process):
-            if count % int(len(forests_to_process)/10) == 0:
-                print("Rank {0} processed {1} Forests ({2:.2f} seconds "
-                      "elapsed).".format(rank, count,
-                                         time.time()-start_time))
-                print("Rank {0} processed {1} Root "
-                      "Halos".format(rank, sum_NHalos_root))
+            #if count % int(len(forests_to_process)/10) == 0:
+            #    print("Rank {0} processed {1} Forests ({2:.2f} seconds "
+            #          "elapsed).".format(rank, count,
+            #                             time.time()-start_time))
+            #    print("Rank {0} processed {1} Root "
+            #          "Halos".format(rank, sum_NHalos_root))
 
             NHalos = sum(NHalos_forest_snap[forestID].values())
             NHalos_root = NHalos_forest_snap[forestID][last_snap_key]
@@ -543,7 +586,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                                     == -1)[0]) == 1)
             # Flybys and `NextHaloInFOFgroup` now fixed.
 
-            forest_halos = fix_nextprog(forest_halos)
+            forest_halos = fix_nextprog(forest_halos, forestID)
 
             # The VELOCIraptor + Treefrog trees point to themselves when
             # they terminate.  However LHalo Trees requires these to be -1,
@@ -837,7 +880,7 @@ def populate_forest(f_in, forest_halos, Snap_Keys, Snap_Nums, forestID,
         halos_forest_inds = list(np.arange(halos_forest_offset,
                                            halos_forest_offset + NHalos))
 
-        print("Filling {0} Halos".format(len(halos_forest_inds)))
+        #print("Filling {0} Halos".format(len(halos_forest_inds)))
         # Then go to the HDF5 file and grab all the required properties.
         forest_halos, halos_offset = fill_LHalo_properties(f_in[snap_key],
                                                            forest_halos,
@@ -908,6 +951,7 @@ def fill_LHalo_properties(f_in, forest_halos, halo_indices, current_offset,
     # `FirstHaloInFOFgroup` is -1 for main FoF halos.  However in the LHaloTree
     # structure, this should point to itself. 
     forest_halos["FirstHaloInFOFgroup"][current_offset:current_offset+NHalos_thissnap] = f_in["hostHaloID"][halo_indices]
+    #print(forest_halos["FirstHaloInFOFgroup"][current_offset:current_offset+NHalos_thissnap])
 
     # First find out what the FoF groups are.  Then go through the FoF groups
     # and update the `NextHaloInFOFgroup` pointer.
