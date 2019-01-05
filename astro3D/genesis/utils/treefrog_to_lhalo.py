@@ -497,9 +497,9 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         print("Rank {0} writing {1} forests containing a total of {2} "
               "halos.".format(rank, len(forests_to_process), totNHalos))
         if write_binary_flag == 1 or write_binary_flag == 2:
-            my_fname_out = "{0}.{1}".format(fname_out, rank)
+            my_fname_out = "{0}.{1}".format(fname_out, filenr)
         else:
-            my_fname_out = "{0}.{1}.hdf5".format(fname_out, rank)
+            my_fname_out = "{0}.{1}.hdf5".format(fname_out, filenr)
 
         write_header(my_fname_out, len(forests_to_process), totNHalos,
                      global_halos_per_forest, write_binary_flag)
