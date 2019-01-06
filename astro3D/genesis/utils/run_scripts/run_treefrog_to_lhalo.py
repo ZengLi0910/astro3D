@@ -23,7 +23,7 @@ if __name__ == '__main__':
     fname_alist = "/fred/oz070/jseiler/astro3d/nov2018/L105_N2048/lhalo/alist"
     dry_run = 0
     total_files = 128
-    files_processed = 0
+    files_processed = 112
     debug = 0
 
     frog_to_l.treefrog_to_lhalo(fname_in, fname_out,

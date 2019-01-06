@@ -125,9 +125,20 @@ def fix_nextprog(forest_halos, forestID, debug=0):
     """
 
     all_descendants = forest_halos["Descendant"][:]
+    NHalos = len(forest_halos["Descendant"][:])
+    snap_num = forest_halos["SnapNum"][0]
+
     for ii, d in enumerate(all_descendants):
         if d == ii:
             continue
+
+        if d > NHalos:
+            print("For ForestID {0} at Snapshot {1}, we found a descendent "
+                  "with index {2}. However, for this tree, there are only "
+                  "{3} Halos. Rank is {4}.".format(forestID, snap_num, d,
+                                                   rank))
+            raise IndexError
+
         curr = forest_halos["FirstProgenitor"][d]
 
         if debug:
@@ -144,9 +155,9 @@ def fix_nextprog(forest_halos, forestID, debug=0):
                   "error.".format(forestID, rank))
             print("However, we only have {0} Halos in this "
                   "forest.".format(len(forest_halos)))
+            raise IndexError
         else:
             pass
-
 
         while forest_halos["NextProgenitor"][curr] != -1:
 
@@ -737,7 +748,25 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
     print("Assignment idx {0}".format(assignment_idx))
     # Assign the trees depending on the processor rank and how many files we've
     # processed so far.
+
+    # Due to rounding errors and very large trees, we could encounter a
+    # situation in which the length of `assignment_idx` is less than the number
+    # of processors.  In this instance, we want to print a message notifying
+    # the user and return `None`.  We will then handle this in the main
+    # function call.
     this_rank_idx = rank+files_processed
+
+    if this_rank_idx >= len(assignment_idx):
+        print("The current assignment_idx list is {0}. The length of this "
+              "list is {1}. I am rank {2} and {3} files have already been "
+              "processed making my index {4}.".format(assignment_idx,
+                                                      len(assignment_idx),
+                                                      rank, files_processed,
+                                                      this_rank_idx))
+        print("Since my index is larger than the length of the list, I am "
+              "exiting. Goodbye!")
+        exit()
+
     forest_idx_low = assignment_idx[this_rank_idx] 
     forest_idx_high = assignment_idx[this_rank_idx+1]
 
