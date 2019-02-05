@@ -387,6 +387,12 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
         print("Doing this for a total of {0} "
               "forests.".format(len(forests_to_process)))
 
+    # According to https://wiki.python.org/moin/TimeComplexity, the operation
+    # "X in Y" is O(N) if Y is a list. However, if Y is a Set, this reduces to
+    # O(1).  Hence let's first convert to a Set.
+    if forests_to_process is not None:  # Check the `None` case.
+        forests_to_process = set(forests_to_process)
+
     NHalos_forest_per_snap = {}
     NHalos_forest_per_snap_offset = {}
 
@@ -429,7 +435,16 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
             NHalos = NHalos_forest_snap[forest_num]
 
             # Only care about those Forests we're required to count.
-            if forest_id in forests_to_process:
+            try:
+                process_forest = forest_id in forests_to_process
+            # If `forests_to_process` is `None`, i.e. we're doing ALL forests,
+            # this statement will yield a `TypeError`. We still want to process
+            # this forest though.
+            except TypeError:
+                process_forest = True
+
+            #process_forest = True
+            if process_forest:
                 # The first time a forest appears it won't have a corresponding key
                 # in the nested dictionary so create it.
                 try:
