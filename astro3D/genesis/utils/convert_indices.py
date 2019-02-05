@@ -80,7 +80,9 @@ def convert_indices(fname_in, fname_out,
         Snap_Keys, Snap_Nums = cmn.get_snapkeys_and_nums(f_in.keys())
 
         NHalos_forest_per_snap, NHalos_forest_per_snap_offset = \
-            cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field, forestID_field)
+            cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field,
+                                              forestID_field,
+                                              forests_to_process=None)
 
         print("Now creating a dictionary that maps the old, global indices to "
               "ones that are forest-local.")
@@ -112,7 +114,6 @@ def convert_indices(fname_in, fname_out,
             newIDs_global = []
 
             forests_thissnap = np.unique(f_in[snap_key][forestID_field][:])
-
             oldIDs = f_in[snap_key][haloID_field][:]
 
             if debug:
@@ -185,21 +186,20 @@ def convert_indices(fname_in, fname_out,
             except KeyError:
                 continue
 
-            forests_thissnap = np.unique(f_in[snap_key][forestID_field][:])
-
             for field in ID_fields:  # If this field has an ID...
 
                 oldID = f_in[snap_key][field][:]
+
                 snapnum = cmn.temporalID_to_snapnum(oldID,
                                                     index_mult_factor)
-
                 # We now want to map the oldIDs to the new, forest-local
                 # IDs.  However because you can't hash a dictionary with a
                 # numpy array, this needs to be done manually in a `for`
                 # loop.
+                newID = []
+                for (snap, ID) in zip(snapnum, oldID):
+                    newID.append(ID_maps[snap][ID])
 
-                newID = [ID_maps[snap][ID] for snap, ID in zip(snapnum,
-                                                               oldID)]
                 f_out[snap_key][field][:] = newID
 
             # Field Loop.
