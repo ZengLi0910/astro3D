@@ -136,7 +136,7 @@ def fix_nextprog(forest_halos, forestID, debug=0):
             print("For ForestID {0} at Snapshot {1}, we found a descendent "
                   "with index {2}. However, for this tree, there are only "
                   "{3} Halos. Rank is {4}.".format(forestID, snap_num, d,
-                                                   rank))
+                                                   NHalos, rank))
             raise IndexError
 
         curr = forest_halos["FirstProgenitor"][d]
@@ -415,6 +415,8 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
     produced by VELOCIraptor + Treefrog.
     """
 
+    start_time = time.time()
+
     if debug:
         np.set_printoptions(threshold=np.nan)
 
@@ -429,6 +431,9 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         print("Number of Processors: {0}".format(size))
         print("Number of forests to process: {0}".format(Nforests))
         print("Write Binary Flag: {0}".format(write_binary_flag))
+        print("Total files to write: {0}".format(total_files))
+        print("Files already processed: {0}".format(files_processed))
+        print("Debug: {0}".format(debug))
         print("=================================")
         print("")
 
@@ -468,7 +473,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
         # If we're running in parallel, determine what forest IDs each
         # processor is handling.
-        if size > 1:
+        if size > 1 or total_files != 1:
             forests_to_process = determine_forests(NHalos_forest,
                                                    total_forests_to_process,
                                                    total_files=total_files,
@@ -485,6 +490,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
 
         # Now that each processor knows what Forests they're processing,
         # they need to know the number of halos per snapshot per forest.
+
         NHalos_forest_snap, NHalos_forest_snap_offset = \
             cmn.get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field,
                                               forestID_field, is_mpi, debug,
@@ -507,6 +513,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         # Write out the header with all this info.
         print("Rank {0} writing {1} forests containing a total of {2} "
               "halos.".format(rank, len(forests_to_process), totNHalos))
+
         if write_binary_flag == 1 or write_binary_flag == 2:
             my_fname_out = "{0}.{1}".format(fname_out, filenr)
         else:
@@ -515,7 +522,6 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         write_header(my_fname_out, len(forests_to_process), totNHalos,
                      global_halos_per_forest, write_binary_flag)
 
-        start_time = time.time()
         hubble_h = get_hubble_h(f_in)
         # Now for each forest we want to populate the LHalos forest struct, fix
         # any IDs (e.g., flybys) and then write them out.
@@ -525,13 +531,21 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
             f_out = h5py.File(my_fname_out, "a")
 
         sum_NHalos_root = 0
+
+        # We want to print out information after we've processed every 10% of
+        # forests.
+        print_counter = 0
+        print_interval = 0.1
+
         for count, forestID in enumerate(forests_to_process):
-            #if count % int(len(forests_to_process)/10) == 0:
-            #    print("Rank {0} processed {1} Forests ({2:.2f} seconds "
-            #          "elapsed).".format(rank, count,
-            #                             time.time()-start_time))
-            #    print("Rank {0} processed {1} Root "
-            #          "Halos".format(rank, sum_NHalos_root))
+            frac_processed = count / len(forests_to_process)
+
+            if frac_processed > print_counter*print_interval:
+                print("Rank {0} processed {1} Forests ({2:.2f}% of its "
+                      "allocation) after {3:.2f} seconds.".format(rank, count,
+                                                                  frac_processed*100,
+                                                                  time.time()-start_time))
+                print_counter += 1
 
             NHalos = sum(NHalos_forest_snap[forestID].values())
             NHalos_root = NHalos_forest_snap[forestID][last_snap_key]
@@ -745,7 +759,6 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
     # The last slice end will be the final element.
     assignment_idx.append(count+1)
  
-    print("Assignment idx {0}".format(assignment_idx))
     # Assign the trees depending on the processor rank and how many files we've
     # processed so far.
 
@@ -756,7 +769,8 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
     # function call.
     this_rank_idx = rank+files_processed
 
-    if this_rank_idx >= len(assignment_idx):
+    # -1 because we +1 later...
+    if this_rank_idx >= len(assignment_idx) - 1:
         print("The current assignment_idx list is {0}. The length of this "
               "list is {1}. I am rank {2} and {3} files have already been "
               "processed making my index {4}.".format(assignment_idx,
