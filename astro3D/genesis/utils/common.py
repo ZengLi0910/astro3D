@@ -465,8 +465,8 @@ def get_halos_per_forest_per_snap(f_in, Snap_Keys, haloID_field="ID",
                                                   NHalos_forest_per_snap))
 
     end_time = time.time()
-    print("Creation of number of halos per forest took {0:3f} seconds."
-          .format(end_time - start_time))
+    print("Creation of number of halos per forest took {0:.2f} seconds ({1:.2f} "
+          "minutes.".format(end_time - start_time, (end_time-state_time)/60.0))
     print("")
 
     return NHalos_forest_per_snap, NHalos_forest_per_snap_offset

@@ -541,10 +541,11 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
             frac_processed = count / len(forests_to_process)
 
             if frac_processed > print_counter*print_interval:
+                seconds_passed = time.time()-start_time
                 print("Rank {0} processed {1} Forests ({2:.2f}% of its "
-                      "allocation) after {3:.2f} seconds.".format(rank, count,
-                                                                  frac_processed*100,
-                                                                  time.time()-start_time))
+                      "allocation) after {3:.2f} seconds (4:.2f minutes)." \
+                      .format(rank, count, frac_processed*100.0, seconds_passed,
+                              seconds_passed/60.0))
                 print_counter += 1
 
             NHalos = sum(NHalos_forest_snap[forestID].values())
@@ -840,6 +841,9 @@ def write_header(fname_out, Nforests, totNHalos, halos_per_forest,
             f_out.write(np.array(Nforests, dtype=np.int32).tobytes())
             f_out.write(np.array(totNHalos, dtype=np.int32).tobytes())
             f_out.write(np.array(halos_per_forest, dtype=np.int32).tobytes())
+
+        print("Wrote a header to file {0} with a total of {1} Forests and {2} "
+              "Halos".format(fname_out, Nforests, totNHalos))
 
     else:
 
