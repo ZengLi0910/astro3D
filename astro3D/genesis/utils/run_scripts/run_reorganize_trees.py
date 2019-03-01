@@ -16,6 +16,6 @@ if __name__ == '__main__':
     binary_flag = 1
     debug = 1
 
-    reorg.reorganize_trees(fname_in, fname_out, num_files_in, N_side=N_side,
-                           boxsize=boxsize, binary_flag=binary_flag,
+    reorg.reorganize_trees(fname_in, fname_out, num_files_in, boxsize,
+                           N_side=N_side, binary_flag=binary_flag,
                            debug=debug)
