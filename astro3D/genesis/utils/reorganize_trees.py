@@ -15,6 +15,46 @@ import time
 __all__ = ("reorganize_trees", )
 
 
+def check_trees(fname_in, num_files, N_side=3, boxsize=None):
+
+    LHalo_Desc, _ = frog.get_LHalo_datastruct()
+
+    for file_in_idx in range(num_files):
+
+        fname = "{0}.{1}".format(fname_in, file_in_idx)
+
+        mins = [1000.0, 1000.0, 1000.0] 
+        maxs = [0.0, 0.0, 0.0]
+
+        with open(fname, "rb") as f_in:
+
+            # First get header info from the binary file.
+            NTrees = np.fromfile(f_in, np.dtype(np.int32), 1)[0]
+            NHalos = np.fromfile(f_in, np.dtype(np.int32), 1)[0]
+            NHalosPerTree = np.fromfile(f_in,
+                                        np.dtype((np.int32, NTrees)), 1)[0]
+
+            for tree_idx in range(NTrees):
+
+                binary_tree = np.fromfile(f_in, LHalo_Desc,
+                                          NHalosPerTree[tree_idx])
+
+                w = np.where(binary_tree["SnapNum"] == 131)[0]
+
+                for dim_num, dim in enumerate(["Posx", "Posy", "Posz"]):
+                    if np.min(divmod(binary_tree[dim][w],500.0)[1]) < mins[dim_num]:
+                        mins[dim_num] = np.min(divmod(binary_tree[dim][w], 500.0)[1])
+
+                    if np.max(divmod(binary_tree[dim][w], 500.0)[1]) > maxs[dim_num]:
+                        maxs[dim_num] = np.max(divmod(binary_tree[dim][w], 500.0)[1])
+ 
+    
+        for dim_num, dim in enumerate(["x", "y", "z"]):
+            print("Min {0} {1}\tMax {0} {2}".format(dim, mins[dim_num], maxs[dim_num]))
+
+    return
+    
+
 def reorganize_trees(fname_in, fname_out, num_files_in, N_side=3,
                      boxsize=None, binary_flag=1, debug=0):
 
@@ -152,3 +192,9 @@ def determine_task_bounds(N_side, partition_length, partition_idx):
     x[1] = x[0] + partition_length
 
     return x, y, z
+
+
+if __name__ == "__main__":
+
+    fname = "/fred/oz070/jseiler/astro3d/jan2019/L500_N2160_take2/lhalo/sub_volume/converted"
+    check_trees(fname, 64)
