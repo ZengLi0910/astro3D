@@ -465,7 +465,28 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
         # https://stackoverflow.com/questions/268272/getting-key-with-maximum-value-in-dictionary
         last_snap_key = max(Snap_Nums, key=Snap_Nums.get)
 
-        total_forests_to_process = np.unique(f_in[last_snap_key][forestID_field][:])
+        #forests_root = np.unique(f_in[last_snap_key][forestID_field][:])
+        total_forests_to_process =  list(NHalos_forest.keys())
+
+        """
+        NHalos_true = 0
+        for forest in tqdm(total_forests_to_process):
+            NHalos_true += NHalos_forest[forest]
+
+        NHalos_root = 0
+        for forest in forests_root:
+            NHalos_root += NHalos_forest[forest]
+
+        print("There are {0} total trees. Using np.unique at the last snapshot "
+              "we find {1} trees.".format(len(total_forests_to_process),
+                                          len(forests_root)))
+
+        print("There are {0} total halos. Using the root trees only, there are "
+              "{1} Halos".format(NHalos_true, NHalos_root))
+
+        exit()
+        """
+
         print("Total forests {0}".format(len(total_forests_to_process)))
 
         if Nforests:
@@ -543,12 +564,14 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
             if frac_processed > print_counter*print_interval:
                 seconds_passed = time.time()-start_time
                 print("Rank {0} processed {1} Forests ({2:.2f}% of its "
-                      "allocation) after {3:.2f} seconds (4:.2f minutes)." \
+                      "allocation) after {3:.2f} seconds ({4:.2f} minutes)." \
                       .format(rank, count, frac_processed*100.0, seconds_passed,
                               seconds_passed/60.0))
                 print_counter += 1
 
             NHalos = sum(NHalos_forest_snap[forestID].values())
+
+            last_snap_key = list(NHalos_forest_snap[forestID].keys())[-1]
             NHalos_root = NHalos_forest_snap[forestID][last_snap_key]
             sum_NHalos_root += NHalos_root
 
@@ -559,6 +582,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                                            NHalos_forest_snap_offset,
                                            filenr, hubble_h)
 
+            ''' 
             forest_NHalos_root = np.where(forest_halos["SnapNum"] ==
                                           Snap_Nums[last_snap_key])[0]
 
@@ -570,7 +594,7 @@ def treefrog_to_lhalo(fname_in, fname_out, haloID_field="ID",
                       "snapshot.".format(forest_NHalos_root))
                 print("Rank {0}, Forest {1}".format(rank, forestID))
                 raise RuntimeError
-
+            ''' 
             if dry_run:
                 continue
 
@@ -722,7 +746,7 @@ def determine_forests(NHalos_forest, all_forests, total_files=size,
     # those forests we're interested in. 
     if len(all_forests) == len(NHalos_forest):
         NHalos_forest_interest = list(NHalos_forest.values())
-        forestID_forest_interest = list(NHalosS_forest.keys())           
+        forestID_forest_interest = list(NHalos_forest.keys())
     else:
         NHalos_forest_interest = []
         forestID_forest_interest = all_forests
